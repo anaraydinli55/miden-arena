@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  background:
+    radial-gradient(circle at 80% 0%, rgba(98, 75, 255, .14), transparent 30%),
+    radial-gradient(circle at 20% 20%, rgba(0, 220, 190, .08), transparent 26%),
+    #05060a;
+  color: #f4f5f7;
+  font-family: Arial, Helvetica, sans-serif;
+}
+::selection { background: rgba(255,255,255,.18); }
+.card {
+  background: rgba(13,15,22,.78);
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 20px 70px rgba(0,0,0,.22);
+  backdrop-filter: blur(18px);
+}
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
