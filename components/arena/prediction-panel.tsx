@@ -7,7 +7,6 @@ const MARKET_CONTRACT_ID = "0x4fd1531ea602bd513c5b87df3d8332";
 const PREDICTION_NOTE_ROOT = "0x1f729bca224ca17afca549d84da4fd465300bcadba9f63e5df87e0fcd5679e79";
 const SKS_FAUCET_ID = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
 const MARKET_ID = 1;
-const RELAYER_URL = "http://127.0.0.1:8080";
 
 export function PredictionPanel() {
   const { connected, address, connect } = useWallet();
@@ -26,7 +25,7 @@ export function PredictionPanel() {
 
   const fetchLiveState = async () => {
     try {
-      const res = await fetch(`${RELAYER_URL}/market`);
+      const res = await fetch("/api/market");
       if (res.ok) {
         const data = await res.json();
         setLivePool({
@@ -40,7 +39,7 @@ export function PredictionPanel() {
 
   useEffect(() => {
     fetchLiveState();
-    const interval = setInterval(fetchLiveState, 2000);
+    const interval = setInterval(fetchLiveState, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -50,11 +49,12 @@ export function PredictionPanel() {
 
     const provider = getProvider();
     if (!provider) {
-      setStatus("❌ Bread Wallet extension tapılmadı.");
+      setStatus("❌ Bread / Miden Wallet extension tapılmadı. Zəhmət olmasa extension-u quraşdırın.");
+      alert("Bread Wallet extension tapılmadı!");
       return;
     }
 
-    if (!connected) {
+    if (!connected || !address) {
       await connect();
       return;
     }
@@ -65,67 +65,93 @@ export function PredictionPanel() {
     }
 
     setLoading(true);
-    setStatus("⚡ ZK Prediction Note icra olunur...");
+    setStatus("🍞 Bread Wallet pəncərəsi açılır... Zəhmət olmasa cüzdandan 'Confirm' basın.");
 
     try {
-      const parsedAmount = Number(amount) || 10;
-      let realTxId: string | null = null;
+      const parsedAmount = (Number(amount) || 10) * 1_000_000;
 
-      if (provider) {
-        try {
-          const sendTxPayload = {
-            sender: provider.address || address || "mtst1apytn_wr6w",
-            recipient: MARKET_CONTRACT_ID,
-            to: MARKET_CONTRACT_ID,
-            target: MARKET_CONTRACT_ID,
-            faucetId: SKS_FAUCET_ID,
-            noteType: "public",
-            amount: parsedAmount * 1_000_000,
-            noteScriptRoot: PREDICTION_NOTE_ROOT,
-            metadata: {
-              marketId: MARKET_ID,
-              choice: choice,
-            },
-          };
+      const sendTxPayload = {
+        sender: address,
+        from: address,
+        recipient: MARKET_CONTRACT_ID,
+        to: MARKET_CONTRACT_ID,
+        target: MARKET_CONTRACT_ID,
+        targetAccountId: MARKET_CONTRACT_ID,
+        faucetId: SKS_FAUCET_ID,
+        assetId: SKS_FAUCET_ID,
+        noteType: "public",
+        amount: parsedAmount,
+        noteScriptRoot: PREDICTION_NOTE_ROOT,
+        metadata: {
+          marketId: MARKET_ID,
+          choice: choice,
+        },
+      };
 
-          if (typeof provider.requestSendTransaction === "function") {
-            const res = await provider.requestSendTransaction(sendTxPayload);
-            realTxId = typeof res === "string" ? res : res?.txId || res?.hash || null;
-          } else if (typeof provider.requestTransaction === "function") {
-            const res = await provider.requestTransaction(sendTxPayload);
-            realTxId = typeof res === "string" ? res : res?.txId || res?.hash || null;
-          }
-        } catch (e) {
-          console.warn("Wallet note handled:", e);
-        }
+      console.log("MANDATORY Extension Call with payload:", sendTxPayload);
+
+      let txResponse: any = null;
+
+      // Real Extension Popup Çağırışları
+      if (typeof provider.request === "function") {
+        txResponse = await provider.request({
+          method: "miden_sendTransaction",
+          params: [sendTxPayload],
+        });
+      } else if (typeof provider.requestSend === "function") {
+        txResponse = await provider.requestSend(sendTxPayload);
+      } else if (typeof provider.requestSendTransaction === "function") {
+        txResponse = await provider.requestSendTransaction(sendTxPayload);
+      } else if (typeof provider.sendTransaction === "function") {
+        txResponse = await provider.sendTransaction(sendTxPayload);
+      } else {
+        throw new Error("Bread Wallet extension-da tranzaksiya göndərmə metodu tapılmadı.");
       }
 
-      // Relayer Daemon ZK State yeniləməsi
-      const relayerRes = await fetch(`${RELAYER_URL}/submit`, {
+      console.log("Raw Wallet Response:", txResponse);
+
+      let realTxId: string | null = null;
+      if (typeof txResponse === "string" && txResponse.startsWith("0x")) {
+        realTxId = txResponse;
+      } else if (txResponse && typeof txResponse === "object") {
+        realTxId = txResponse.txId || txResponse.hash || txResponse.id || null;
+      }
+
+      // QƏTİ ŞƏRT: Əgər cüzdan real Tx ID qaytarmasa, ƏMƏLİYYAT DAYANDIRILIR (Heç bir saxta hash yoxdur!)
+      if (!realTxId) {
+        throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx Hash qaytarmadı.");
+      }
+
+      // YALNIZ real tranzaksiya təsdiqləndikdən sonra backend-ə yazırıq
+      const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           choice: choice,
-          amount: parsedAmount,
+          amount: Number(amount) || 10,
+          txHash: realTxId,
         }),
       });
 
-      if (relayerRes.ok) {
-        const updated = await relayerRes.json();
+      if (res.ok) {
+        const data = await res.json();
         setLivePool({
-          total: updated.total_pool,
-          yes: updated.yes_pool,
-          no: updated.no_pool,
+          total: data.updated_state.total_pool,
+          yes: data.updated_state.yes_pool,
+          no: data.updated_state.no_pool,
         });
       }
 
-      const finalTx = realTxId || (provider?.lastTxHash || "0xcca6801aba386f805094218afadb5c6904384cb7f48c1fc16b887aa340ec311e");
-
-      setTxHash(finalTx);
-      setStatus(`✅ ZK Prediction Uğurla İcra Olundu! (${choice}: ${amount} SKS əlavə edildi)`);
+      setTxHash(realTxId);
+      setStatus(`✅ Real On-Chain Tranzaksiya Cüzdandan Təsdiqləndi! (${choice}: ${amount} SKS)`);
     } catch (err: any) {
-      console.error("Submission error:", err);
-      setStatus(`❌ Xəta: ${err?.message || "Tranzaksiya icra olunmadı"}`);
+      console.error("Wallet transaction failed/rejected:", err);
+      if (err?.message?.includes("User rejected") || err?.message?.includes("Cancel") || err?.code === 4001) {
+        setStatus("⚠️ İstifadəçi tranzaksiyanı cüzdanda ləğv etdi.");
+      } else {
+        setStatus(`❌ Cüzdan Xətası: ${err?.message || "Tranzaksiya icra olunmadı"}`);
+      }
+      setTxHash(null);
     } finally {
       setLoading(false);
     }
@@ -189,19 +215,19 @@ export function PredictionPanel() {
       </div>
 
       <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3 text-xs text-white/60">
-        {connected ? (
-          <span className="text-emerald-400">🟢 Bread Wallet Connected</span>
+        {connected && address ? (
+          <span className="text-emerald-400">🟢 Connected: {address.slice(0, 10)}...{address.slice(-4)}</span>
         ) : (
           <span className="text-amber-400">⚠️ Sol menyudan cüzdanı qoşun.</span>
         )}
       </div>
 
       <button
-        disabled={!choice || loading}
+        disabled={!choice || !connected || loading}
         onClick={submitPrediction}
         className="mt-3 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 shadow-lg shadow-cyan-500/20"
       >
-        {loading ? "⏳ ZK Tranzaksiya İcra Olunur..." : "⚡ Submit ZK Prediction"}
+        {loading ? "⏳ Cüzdandan 'Confirm' Gözlənilir..." : "⚡ Submit ZK Prediction (Approve in Wallet)"}
       </button>
 
       {status && (
@@ -221,7 +247,7 @@ export function PredictionPanel() {
       {txHash && (
         <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-[11px] text-emerald-200 space-y-1">
           <div className="font-bold flex items-center justify-between">
-            <span>🎉 On-Chain Transaction Hash:</span>
+            <span>🎉 Real On-Chain Tx Hash:</span>
             <a 
               href={`https://testnet.midenscan.com/tx/${txHash}`} 
               target="_blank" 
