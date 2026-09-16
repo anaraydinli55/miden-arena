@@ -30,88 +30,112 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const getProvider = () => {
     if (typeof window === "undefined") return null;
-    return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
-  };
-
-  const getActiveAccount = async () => {
-    const provider = getProvider();
-    if (!provider) return null;
-
-    try {
-      if (typeof provider.request === "function") {
-        const accs = await provider.request({ method: "miden_accounts" }).catch(() => null);
-        if (accs && accs.length > 0) return accs[0]?.address || accs[0];
-      }
-      if (typeof provider.requestConnection === "function") {
-        const conn = await provider.requestConnection().catch(() => null);
-        return conn?.address || conn?.publicKey || (conn?.accounts && conn.accounts[0]) || null;
-      }
-      if (provider.address) return provider.address;
-    } catch (e) {}
-    return null;
+    return (
+      (window as any).bread ||
+      (window as any).miden ||
+      (window as any).midenWallet ||
+      (window as any).__MIDEN_WALLET__ ||
+      null
+    );
   };
 
   useEffect(() => {
-    const provider = getProvider();
-    if (!provider) return;
+    const handleAccountSync = async () => {
+      const provider = getProvider();
+      if (!provider) return;
 
-    getActiveAccount().then((acc) => {
-      if (acc) {
-        setAddress(acc);
-        setConnected(true);
-      }
-    });
-
-    if (typeof provider.on === "function") {
-      provider.on("accountsChanged", (accounts: any[]) => {
-        if (accounts && accounts.length > 0) {
-          const acc = typeof accounts[0] === "string" ? accounts[0] : accounts[0]?.address || accounts[0]?.id;
-          setAddress(acc);
+      try {
+        if (provider.address) {
+          setAddress(provider.address);
           setConnected(true);
-        } else {
+        } else if (provider.publicKey) {
+          setAddress(provider.publicKey);
+          setConnected(true);
+        }
+      } catch (e) {}
+
+      if (typeof provider.on === "function") {
+        provider.on("accountsChanged", (accounts: any[]) => {
+          if (accounts && accounts.length > 0) {
+            const acc = typeof accounts[0] === "string" ? accounts[0] : accounts[0]?.address || accounts[0]?.id;
+            setAddress(acc);
+            setConnected(true);
+          } else {
+            setConnected(false);
+            setAddress(null);
+          }
+        });
+        provider.on("disconnect", () => {
           setConnected(false);
           setAddress(null);
-        }
-      });
-    }
+        });
+      }
+    };
+
+    handleAccountSync();
+    window.addEventListener("load", handleAccountSync);
+    return () => window.removeEventListener("load", handleAccountSync);
   }, []);
 
   const connect = async (): Promise<string | null> => {
     setError(null);
     const provider = getProvider();
 
+    console.log("Connect button clicked! Provider detected:", provider);
+
     if (!provider) {
-      alert("Bread Wallet extension brauzerdə tapılmadı!");
+      alert("⚠️ Bread Wallet / Miden Wallet Chrome Extension tapılmadı!\nZəhmət olmasa extension-ın brauzerdə aktiv olduğundan əmin olun.");
       return null;
     }
 
     try {
       let activeAcc: string | null = null;
+
+      // Popup açan bütün mümkün Miden/Bread metodlarını yoxlayırıq:
       if (typeof provider.requestConnection === "function") {
+        console.log("Triggering provider.requestConnection()...");
         const res = await provider.requestConnection();
         activeAcc = res?.address || res?.publicKey || (res?.accounts && res.accounts[0]) || null;
+      } else if (typeof provider.connect === "function") {
+        console.log("Triggering provider.connect()...");
+        const res = await provider.connect();
+        activeAcc = res?.address || (res?.accounts && res.accounts[0]) || null;
       } else if (typeof provider.request === "function") {
-        const res = await provider.request({ method: "miden_requestAccounts" });
-        activeAcc = res?.[0] || null;
+        console.log("Triggering provider.request(miden_requestConnection)...");
+        try {
+          const res = await provider.request({ method: "miden_requestConnection" });
+          activeAcc = res?.address || (res?.accounts && res.accounts[0]) || null;
+        } catch (e) {
+          const accs = await provider.request({ method: "miden_requestAccounts" });
+          activeAcc = accs?.[0] || null;
+        }
       }
 
       if (!activeAcc && provider.address) {
         activeAcc = provider.address;
       }
 
+      console.log("Connected account successfully retrieved:", activeAcc);
+
       if (activeAcc) {
         setAddress(activeAcc);
         setConnected(true);
         return activeAcc;
+      } else {
+        throw new Error("Cüzdandan hesab ünvanı qayıtmadı.");
       }
     } catch (e: any) {
-      console.error("Connect error:", e);
+      console.error("Connect failed:", e);
       setError(e?.message || "Cüzdan bağlantısı rədd edildi.");
     }
     return null;
   };
 
   const disconnect = () => {
+    const provider = getProvider();
+    if (provider && typeof provider.disconnect === "function") {
+      try { provider.disconnect(); } catch (e) {}
+    }
     setConnected(false);
     setAddress(null);
   };
