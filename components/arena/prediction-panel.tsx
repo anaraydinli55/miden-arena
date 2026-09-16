@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useWallet } from "@/components/wallet/wallet-provider";
 
 const MARKET_CONTRACT_ID = "0x4fd1531ea602bd513c5b87df3d8332";
-const PREDICTION_NOTE_ROOT = "0x1f729bca224ca17afca549d84da4fd465300bcadba9f63e5df87e0fcd5679e79";
 const SKS_FAUCET_ID = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
 const MARKET_ID = 1;
 
@@ -43,36 +42,6 @@ export function PredictionPanel() {
     return () => clearInterval(interval);
   }, []);
 
-  // Məcburi Handshake: Extension-da icazəni (GRANT) təsdiqləyir
-  const ensureGrantedConnection = async (provider: any): Promise<string> => {
-    let activeAcc: string | null = null;
-
-    if (typeof provider.requestConnection === "function") {
-      const res = await provider.requestConnection();
-      activeAcc = res?.address || res?.publicKey || (res?.accounts && res.accounts[0]) || null;
-    } else if (typeof provider.connect === "function") {
-      const res = await provider.connect();
-      activeAcc = res?.address || (res?.accounts && res.accounts[0]) || null;
-    } else if (typeof provider.request === "function") {
-      const res = await provider.request({ method: "miden_requestConnection" }).catch(() => null);
-      activeAcc = res?.address || (res?.accounts && res.accounts[0]) || null;
-      if (!activeAcc) {
-        const accs = await provider.request({ method: "miden_requestAccounts" }).catch(() => null);
-        activeAcc = accs?.[0] || null;
-      }
-    }
-
-    if (!activeAcc && provider.address) {
-      activeAcc = provider.address;
-    }
-
-    if (!activeAcc) {
-      throw new Error("Bread Wallet icazə (GRANT) pəncərəsi təsdiqlənmədi.");
-    }
-
-    return activeAcc;
-  };
-
   const submitPrediction = async () => {
     setStatus(null);
     setTxHash(null);
@@ -88,72 +57,49 @@ export function PredictionPanel() {
       return;
     }
 
+    // Əgər cüzdan qoşulmayıbsa, əvvəlcə qoşulma tələb edirik
+    let currentAccount = provider.address || address;
+    if (!currentAccount) {
+      setStatus("🍞 Cüzdan bağlantısı gözlənilir...");
+      currentAccount = await connect();
+      if (!currentAccount) return;
+    }
+
     setLoading(true);
-    setStatus("🍞 Bread Wallet bağlantısı təsdiqlənir və tranzaksiya pəncərəsi açılır...");
+    setStatus("🍞 Bread Wallet təsdiq pəncərəsi açıldı. Zəhmət olmasa 'Confirm' basın...");
 
     try {
-      // 1. ADDIM: Mütləq şəkildə daxili GRANT icazəsini alırıq
-      const activeAccount = await ensureGrantedConnection(provider);
-      console.log("Permission GRANTED for active account:", activeAccount);
-
-      // 2. ADDIM: Payload hazırlayırıq
       const sendAmount = (Number(amount) || 10) * 1_000_000;
 
-      const sendTxPayload = {
-        sender: activeAccount,
-        from: activeAccount,
-        accountId: activeAccount,
+      // Bread Wallet extension-ın daxili qəbul etdiyi təmiz SendTransaction strukturu
+      const sendTransaction = {
+        accountId: currentAccount,
+        from: currentAccount,
+        sender: currentAccount,
         recipient: MARKET_CONTRACT_ID,
-        targetAccountId: MARKET_CONTRACT_ID,
-        target_account_id: MARKET_CONTRACT_ID,
         to: MARKET_CONTRACT_ID,
-        receiver: MARKET_CONTRACT_ID,
+        targetAccountId: MARKET_CONTRACT_ID,
         faucetId: SKS_FAUCET_ID,
-        faucet_id: SKS_FAUCET_ID,
-        assetId: SKS_FAUCET_ID,
         noteType: "public",
-        note_type: "public",
         amount: sendAmount,
-        noteScriptRoot: PREDICTION_NOTE_ROOT,
-        metadata: {
-          marketId: MARKET_ID,
-          choice: choice,
-        },
       };
 
-      console.log("Requesting send transaction modal with payload:", sendTxPayload);
+      console.log("Submitting official SendTransaction payload:", sendTransaction);
 
-      // 3. ADDIM: Confirm popup-ını açırıq
       let txResponse: any = null;
 
-      try {
-        if (typeof provider.requestSendTransaction === "function") {
-          txResponse = await provider.requestSendTransaction(sendTxPayload);
-        } else if (typeof provider.requestTransaction === "function") {
-          txResponse = await provider.requestTransaction(sendTxPayload);
-        } else if (typeof provider.requestSend === "function") {
-          txResponse = await provider.requestSend(sendTxPayload);
-        } else if (typeof provider.request === "function") {
-          txResponse = await provider.request({
-            method: "miden_sendTransaction",
-            params: [sendTxPayload],
-          });
-        } else if (typeof provider.sendTransaction === "function") {
-          txResponse = await provider.sendTransaction(sendTxPayload);
-        }
-      } catch (err: any) {
-        // Əgər NOT_GRANTED çıxarsa, dərhal yenidən icazə istəyib təkrar göndəririk
-        if (err?.message?.includes("NOT_GRANTED") || err?.name?.includes("NotGranted")) {
-          console.warn("NOT_GRANTED encountered, re-requesting connection grant...");
-          await ensureGrantedConnection(provider);
-          if (typeof provider.requestSend === "function") {
-            txResponse = await provider.requestSend(sendTxPayload);
-          } else if (typeof provider.requestSendTransaction === "function") {
-            txResponse = await provider.requestSendTransaction(sendTxPayload);
-          }
-        } else {
-          throw err;
-        }
+      // Tək və birbaşa tranzaksiya çağırışı (Yanıb-sönmə olmayacaq)
+      if (typeof provider.requestSend === "function") {
+        txResponse = await provider.requestSend(sendTransaction);
+      } else if (typeof provider.requestSendTransaction === "function") {
+        txResponse = await provider.requestSendTransaction(sendTransaction);
+      } else if (typeof provider.sendTransaction === "function") {
+        txResponse = await provider.sendTransaction(sendTransaction);
+      } else if (typeof provider.request === "function") {
+        txResponse = await provider.request({
+          method: "miden_sendTransaction",
+          params: [sendTransaction],
+        });
       }
 
       console.log("Wallet confirmation response:", txResponse);
@@ -169,7 +115,7 @@ export function PredictionPanel() {
         throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx ID qaytarmadı.");
       }
 
-      // 4. ADDIM: Canlı hovuzu artırırıq
+      // Canlı API state-i yeniləyirik
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -190,7 +136,7 @@ export function PredictionPanel() {
       }
 
       setTxHash(realTxId);
-      setStatus(`✅ On-Chain Tranzaksiya Cüzdandan Təsdiqləndi! (${choice}: ${amount} SKS)`);
+      setStatus(`✅ On-Chain Tranzaksiya Uğurla Təsdiqləndi! (${choice}: ${amount} SKS)`);
     } catch (err: any) {
       console.error("Wallet transaction rejected/failed:", err);
       if (err?.message?.includes("User rejected") || err?.message?.includes("Cancel") || err?.code === 4001) {
