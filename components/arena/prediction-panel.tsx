@@ -49,8 +49,7 @@ export function PredictionPanel() {
 
     const provider = getProvider();
     if (!provider) {
-      setStatus("❌ Bread / Miden Wallet extension tapılmadı. Zəhmət olmasa extension-u quraşdırın.");
-      alert("Bread Wallet extension tapılmadı!");
+      setStatus("❌ Bread Wallet extension tapılmadı.");
       return;
     }
 
@@ -65,22 +64,26 @@ export function PredictionPanel() {
     }
 
     setLoading(true);
-    setStatus("🍞 Bread Wallet pəncərəsi açılır... Zəhmət olmasa cüzdandan 'Confirm' basın.");
+    setStatus("🍞 Bread Wallet təsdiq pəncərəsi açılır... Zəhmət olmasa 'Confirm' basın.");
 
     try {
-      const parsedAmount = (Number(amount) || 10) * 1_000_000;
+      const sendAmount = (Number(amount) || 10) * 1_000_000;
 
+      // Extension üçün bütün mümkün recipient sahə adlarını dəqiq ötürürük:
       const sendTxPayload = {
         sender: address,
         from: address,
         recipient: MARKET_CONTRACT_ID,
-        to: MARKET_CONTRACT_ID,
-        target: MARKET_CONTRACT_ID,
         targetAccountId: MARKET_CONTRACT_ID,
+        target_account_id: MARKET_CONTRACT_ID,
+        to: MARKET_CONTRACT_ID,
+        receiver: MARKET_CONTRACT_ID,
         faucetId: SKS_FAUCET_ID,
+        faucet_id: SKS_FAUCET_ID,
         assetId: SKS_FAUCET_ID,
         noteType: "public",
-        amount: parsedAmount,
+        note_type: "public",
+        amount: sendAmount,
         noteScriptRoot: PREDICTION_NOTE_ROOT,
         metadata: {
           marketId: MARKET_ID,
@@ -88,27 +91,27 @@ export function PredictionPanel() {
         },
       };
 
-      console.log("MANDATORY Extension Call with payload:", sendTxPayload);
+      console.log("Submitting fully populated payload to Bread Extension:", sendTxPayload);
 
       let txResponse: any = null;
 
-      // Real Extension Popup Çağırışları
-      if (typeof provider.request === "function") {
+      // Extension ilə dəqiq metod çağırışı
+      if (typeof provider.requestSendTransaction === "function") {
+        txResponse = await provider.requestSendTransaction(sendTxPayload);
+      } else if (typeof provider.requestTransaction === "function") {
+        txResponse = await provider.requestTransaction(sendTxPayload);
+      } else if (typeof provider.requestSend === "function") {
+        txResponse = await provider.requestSend(sendTxPayload);
+      } else if (typeof provider.request === "function") {
         txResponse = await provider.request({
           method: "miden_sendTransaction",
           params: [sendTxPayload],
         });
-      } else if (typeof provider.requestSend === "function") {
-        txResponse = await provider.requestSend(sendTxPayload);
-      } else if (typeof provider.requestSendTransaction === "function") {
-        txResponse = await provider.requestSendTransaction(sendTxPayload);
       } else if (typeof provider.sendTransaction === "function") {
         txResponse = await provider.sendTransaction(sendTxPayload);
-      } else {
-        throw new Error("Bread Wallet extension-da tranzaksiya göndərmə metodu tapılmadı.");
       }
 
-      console.log("Raw Wallet Response:", txResponse);
+      console.log("Wallet confirmation response:", txResponse);
 
       let realTxId: string | null = null;
       if (typeof txResponse === "string" && txResponse.startsWith("0x")) {
@@ -117,12 +120,11 @@ export function PredictionPanel() {
         realTxId = txResponse.txId || txResponse.hash || txResponse.id || null;
       }
 
-      // QƏTİ ŞƏRT: Əgər cüzdan real Tx ID qaytarmasa, ƏMƏLİYYAT DAYANDIRILIR (Heç bir saxta hash yoxdur!)
       if (!realTxId) {
-        throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx Hash qaytarmadı.");
+        throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx ID qaytarmadı.");
       }
 
-      // YALNIZ real tranzaksiya təsdiqləndikdən sonra backend-ə yazırıq
+      // API üzərindən canlı hovuz xalını artırırıq
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -143,13 +145,13 @@ export function PredictionPanel() {
       }
 
       setTxHash(realTxId);
-      setStatus(`✅ Real On-Chain Tranzaksiya Cüzdandan Təsdiqləndi! (${choice}: ${amount} SKS)`);
+      setStatus(`✅ On-Chain Tranzaksiya Uğurla Təsdiqləndi! (${choice}: ${amount} SKS)`);
     } catch (err: any) {
-      console.error("Wallet transaction failed/rejected:", err);
+      console.error("Wallet submit error:", err);
       if (err?.message?.includes("User rejected") || err?.message?.includes("Cancel") || err?.code === 4001) {
-        setStatus("⚠️ İstifadəçi tranzaksiyanı cüzdanda ləğv etdi.");
+        setStatus("⚠️ İstifadəçi tranzaksiyanı ləğv etdi.");
       } else {
-        setStatus(`❌ Cüzdan Xətası: ${err?.message || "Tranzaksiya icra olunmadı"}`);
+        setStatus(`❌ Cüzdan Xətası: ${err?.message || "Təsdiqlənmədi"}`);
       }
       setTxHash(null);
     } finally {
