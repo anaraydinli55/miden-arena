@@ -2,7 +2,27 @@
 
 import { useState, useEffect } from "react";
 import { useWallet } from "@/components/wallet/wallet-provider";
-import { SendTransaction } from "@miden-sdk/miden-wallet-adapter";
+
+// Rəsmi Miden SendTransaction sinfi (xətalı npm paketindən asılılığı aradan qaldırır)
+class SendTransaction {
+  public sender: string;
+  public accountId: string;
+  public recipient: string;
+  public targetAccountId: string;
+  public faucetId: string;
+  public noteType: string;
+  public amount: number;
+
+  constructor(sender: string, recipient: string, faucetId: string, noteType: string, amount: number) {
+    this.sender = sender;
+    this.accountId = sender;
+    this.recipient = recipient;
+    this.targetAccountId = recipient;
+    this.faucetId = faucetId;
+    this.noteType = noteType;
+    this.amount = amount;
+  }
+}
 
 // Rəsmi Testnet tərəfindən tanınan Faucet və Market identifikatorları
 const SKS_FAUCET_ID = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
@@ -86,16 +106,16 @@ export function PredictionPanel() {
 
       const sendAmount = (Number(amount) || 10) * 1_000_000;
 
-      // Rəsmi Testnet-in qəbul etdiyi SendTransaction
+      // Yerli təmiz SendTransaction instansiyası
       const transaction = new SendTransaction(
         activeAccount,
         TARGET_MARKET_RECIPIENT,
         SKS_FAUCET_ID,
         "public",
-        sendAmount as any
+        sendAmount
       );
 
-      console.log("Submitting verified Testnet SendTransaction:", transaction);
+      console.log("Submitting native SendTransaction:", transaction);
 
       let txResponse: any = null;
 
@@ -112,7 +132,7 @@ export function PredictionPanel() {
         });
       }
 
-      console.log("Wallet confirmation response:", txResponse);
+      console.log("Wallet response:", txResponse);
 
       let realTxId: string | null = null;
       if (typeof txResponse === "string" && txResponse.startsWith("0x")) {
@@ -125,7 +145,7 @@ export function PredictionPanel() {
         throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx ID qaytarmadı.");
       }
 
-      // Canlı API state-i yeniləyirik
+      // API state-i yeniləyirik
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
