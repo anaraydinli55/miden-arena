@@ -2,29 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { useWallet } from "@/components/wallet/wallet-provider";
+import { SendTransaction } from "@miden-sdk/miden-wallet-adapter";
 
-const MARKET_CONTRACT_ID = "0x4fd1531ea602bd513c5b87df3d8332";
+// 32-simvollu standart Miden Account Hex ID formatı
+const RAW_CONTRACT_ID = "0x4fd1531ea602bd513c5b87df3d8332";
+const MARKET_CONTRACT_ID = RAW_CONTRACT_ID.startsWith("0x") && RAW_CONTRACT_ID.slice(2).length === 30
+  ? "0x00" + RAW_CONTRACT_ID.slice(2)
+  : RAW_CONTRACT_ID;
+
 const SKS_FAUCET_ID = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
 const MARKET_ID = 1;
-
-// Rəsmi Miden SendTransaction sinfi
-class SendTransaction {
-  public sender: string;
-  public accountId: string;
-  public recipient: string;
-  public faucetId: string;
-  public noteType: string;
-  public amount: number;
-
-  constructor(sender: string, recipient: string, faucetId: string, noteType: string, amount: number) {
-    this.sender = sender;
-    this.accountId = sender;
-    this.recipient = recipient;
-    this.faucetId = faucetId;
-    this.noteType = noteType;
-    this.amount = amount;
-  }
-}
 
 export function PredictionPanel() {
   const { connected, address, connect } = useWallet();
@@ -81,7 +68,7 @@ export function PredictionPanel() {
     setStatus("🍞 Bread Wallet təsdiq pəncərəsi açılır...");
 
     try {
-      // 1. Aktiv hesabı alırıq (İlişmə olmadan)
+      // 1. Aktiv hesabı alırıq
       let activeAccount = address;
 
       if (!activeAccount && typeof provider.requestConnection === "function") {
@@ -98,40 +85,45 @@ export function PredictionPanel() {
         activeAccount = await connect();
       }
 
-      console.log("Ready to send with account:", activeAccount);
+      if (!activeAccount) {
+        throw new Error("Cüzdanın aktiv hesabı oxuna bilmədi. Zəhmət olmasa cüzdanı qoşun.");
+      }
+
+      console.log("Submitting transaction from active account:", activeAccount);
+      console.log("Target Market Contract ID (32-char hex):", MARKET_CONTRACT_ID);
 
       const sendAmount = (Number(amount) || 10) * 1_000_000;
 
-      // 2. Rəsmi SendTransaction obyekti (Recipient təminatı ilə)
-      const tx = new SendTransaction(
-        activeAccount || "mtst1account",
+      // 2. Rəsmi SendTransaction instansiyası
+      const transaction = new SendTransaction(
+        activeAccount,
         MARKET_CONTRACT_ID,
         SKS_FAUCET_ID,
         "public",
-        sendAmount
+        sendAmount as any
       );
 
-      console.log("Calling requestSend with transaction:", tx);
+      console.log("Official SendTransaction object:", transaction);
 
       let txResponse: any = null;
 
       // 3. Extension Popup-ını açırıq
       if (typeof provider.requestSend === "function") {
-        txResponse = await provider.requestSend(tx);
+        txResponse = await provider.requestSend(transaction);
       } else if (typeof provider.requestSendTransaction === "function") {
-        txResponse = await provider.requestSendTransaction(tx);
+        txResponse = await provider.requestSendTransaction(transaction);
+      } else if (typeof provider.sendTransaction === "function") {
+        txResponse = await provider.sendTransaction(transaction);
       } else if (typeof provider.request === "function") {
         txResponse = await provider.request({
           method: "miden_sendTransaction",
-          params: [tx],
+          params: [transaction],
         });
-      } else if (typeof provider.sendTransaction === "function") {
-        txResponse = await provider.sendTransaction(tx);
       } else {
         throw new Error("Extension-da tranzaksiya göndərmə metodu tapılmadı.");
       }
 
-      console.log("Raw wallet response:", txResponse);
+      console.log("Wallet confirmation raw response:", txResponse);
 
       let realTxId: string | null = null;
       if (typeof txResponse === "string" && txResponse.startsWith("0x")) {
@@ -141,7 +133,7 @@ export function PredictionPanel() {
       }
 
       if (!realTxId) {
-        throw new Error("Cüzdandan tranzaksiya təsdiqlənmədi və ya Tx ID qaytarmadı.");
+        throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx ID qaytarmadı.");
       }
 
       // 4. API state-i yeniləyirik
@@ -240,7 +232,7 @@ export function PredictionPanel() {
         {connected && address ? (
           <span className="text-emerald-400">🟢 Connected: {address.slice(0, 10)}...{address.slice(-4)}</span>
         ) : (
-          <span className="text-amber-400">⚠️ Cüzdan qoşulmayıbsa, avtomatik qoşulacaq.</span>
+          <span className="text-amber-400">⚠️ Sol menyudan cüzdanı qoşun.</span>
         )}
       </div>
 
