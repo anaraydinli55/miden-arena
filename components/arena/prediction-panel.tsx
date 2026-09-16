@@ -43,6 +43,36 @@ export function PredictionPanel() {
     return () => clearInterval(interval);
   }, []);
 
+  // Məcburi Handshake: Extension-da icazəni (GRANT) təsdiqləyir
+  const ensureGrantedConnection = async (provider: any): Promise<string> => {
+    let activeAcc: string | null = null;
+
+    if (typeof provider.requestConnection === "function") {
+      const res = await provider.requestConnection();
+      activeAcc = res?.address || res?.publicKey || (res?.accounts && res.accounts[0]) || null;
+    } else if (typeof provider.connect === "function") {
+      const res = await provider.connect();
+      activeAcc = res?.address || (res?.accounts && res.accounts[0]) || null;
+    } else if (typeof provider.request === "function") {
+      const res = await provider.request({ method: "miden_requestConnection" }).catch(() => null);
+      activeAcc = res?.address || (res?.accounts && res.accounts[0]) || null;
+      if (!activeAcc) {
+        const accs = await provider.request({ method: "miden_requestAccounts" }).catch(() => null);
+        activeAcc = accs?.[0] || null;
+      }
+    }
+
+    if (!activeAcc && provider.address) {
+      activeAcc = provider.address;
+    }
+
+    if (!activeAcc) {
+      throw new Error("Bread Wallet icazə (GRANT) pəncərəsi təsdiqlənmədi.");
+    }
+
+    return activeAcc;
+  };
+
   const submitPrediction = async () => {
     setStatus(null);
     setTxHash(null);
@@ -59,33 +89,14 @@ export function PredictionPanel() {
     }
 
     setLoading(true);
-    setStatus("🍞 Bread Wallet bağlantısı yoxlanılır və popup açılır...");
+    setStatus("🍞 Bread Wallet bağlantısı təsdiqlənir və tranzaksiya pəncərəsi açılır...");
 
     try {
-      // DƏQİQ AKTİV HESABI BİRBAŞA EXTENSION-DAN OXUYURUQ
-      let activeAccount: string | null = null;
-      if (typeof provider.request === "function") {
-        const accs = await provider.request({ method: "miden_accounts" }).catch(() => null);
-        if (accs && accs.length > 0) activeAccount = accs[0]?.address || accs[0];
-      }
-      if (!activeAccount && typeof provider.requestConnection === "function") {
-        const conn = await provider.requestConnection().catch(() => null);
-        activeAccount = conn?.address || conn?.publicKey || (conn?.accounts && conn.accounts[0]) || null;
-      }
-      if (!activeAccount) {
-        activeAccount = provider.address || address;
-      }
+      // 1. ADDIM: Mütləq şəkildə daxili GRANT icazəsini alırıq
+      const activeAccount = await ensureGrantedConnection(provider);
+      console.log("Permission GRANTED for active account:", activeAccount);
 
-      if (!activeAccount) {
-        activeAccount = await connect();
-      }
-
-      if (!activeAccount) {
-        throw new Error("Cüzdanın aktiv hesabı oxuna bilmədi. Zəhmət olmasa cüzdanı qoşun.");
-      }
-
-      console.log("Submitting transaction with active wallet account:", activeAccount);
-
+      // 2. ADDIM: Payload hazırlayırıq
       const sendAmount = (Number(amount) || 10) * 1_000_000;
 
       const sendTxPayload = {
@@ -110,26 +121,42 @@ export function PredictionPanel() {
         },
       };
 
-      console.log("Sending payload to Miden Wallet:", sendTxPayload);
+      console.log("Requesting send transaction modal with payload:", sendTxPayload);
 
+      // 3. ADDIM: Confirm popup-ını açırıq
       let txResponse: any = null;
 
-      if (typeof provider.requestSendTransaction === "function") {
-        txResponse = await provider.requestSendTransaction(sendTxPayload);
-      } else if (typeof provider.requestTransaction === "function") {
-        txResponse = await provider.requestTransaction(sendTxPayload);
-      } else if (typeof provider.requestSend === "function") {
-        txResponse = await provider.requestSend(sendTxPayload);
-      } else if (typeof provider.request === "function") {
-        txResponse = await provider.request({
-          method: "miden_sendTransaction",
-          params: [sendTxPayload],
-        });
-      } else if (typeof provider.sendTransaction === "function") {
-        txResponse = await provider.sendTransaction(sendTxPayload);
+      try {
+        if (typeof provider.requestSendTransaction === "function") {
+          txResponse = await provider.requestSendTransaction(sendTxPayload);
+        } else if (typeof provider.requestTransaction === "function") {
+          txResponse = await provider.requestTransaction(sendTxPayload);
+        } else if (typeof provider.requestSend === "function") {
+          txResponse = await provider.requestSend(sendTxPayload);
+        } else if (typeof provider.request === "function") {
+          txResponse = await provider.request({
+            method: "miden_sendTransaction",
+            params: [sendTxPayload],
+          });
+        } else if (typeof provider.sendTransaction === "function") {
+          txResponse = await provider.sendTransaction(sendTxPayload);
+        }
+      } catch (err: any) {
+        // Əgər NOT_GRANTED çıxarsa, dərhal yenidən icazə istəyib təkrar göndəririk
+        if (err?.message?.includes("NOT_GRANTED") || err?.name?.includes("NotGranted")) {
+          console.warn("NOT_GRANTED encountered, re-requesting connection grant...");
+          await ensureGrantedConnection(provider);
+          if (typeof provider.requestSend === "function") {
+            txResponse = await provider.requestSend(sendTxPayload);
+          } else if (typeof provider.requestSendTransaction === "function") {
+            txResponse = await provider.requestSendTransaction(sendTxPayload);
+          }
+        } else {
+          throw err;
+        }
       }
 
-      console.log("Wallet response:", txResponse);
+      console.log("Wallet confirmation response:", txResponse);
 
       let realTxId: string | null = null;
       if (typeof txResponse === "string" && txResponse.startsWith("0x")) {
@@ -142,7 +169,7 @@ export function PredictionPanel() {
         throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx ID qaytarmadı.");
       }
 
-      // API üzərindən canlı hovuz xalını yeniləyirik
+      // 4. ADDIM: Canlı hovuzu artırırıq
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -163,13 +190,13 @@ export function PredictionPanel() {
       }
 
       setTxHash(realTxId);
-      setStatus(`✅ On-Chain Tranzaksiya Uğurla Təsdiqləndi! (${choice}: ${amount} SKS)`);
+      setStatus(`✅ On-Chain Tranzaksiya Cüzdandan Təsdiqləndi! (${choice}: ${amount} SKS)`);
     } catch (err: any) {
-      console.error("Wallet submit error:", err);
+      console.error("Wallet transaction rejected/failed:", err);
       if (err?.message?.includes("User rejected") || err?.message?.includes("Cancel") || err?.code === 4001) {
-        setStatus("⚠️ İstifadəçi tranzaksiyanı ləğv etdi.");
+        setStatus("⚠️ İstifadəçi tranzaksiyanı cüzdanda ləğv etdi.");
       } else {
-        setStatus(`❌ Cüzdan Xətası: ${err?.message || "Təsdiqlənmədi"}`);
+        setStatus(`❌ Cüzdanda Xəta: ${err?.message || "Tranzaksiya təsdiqlənmədi"}`);
       }
       setTxHash(null);
     } finally {
