@@ -7,6 +7,25 @@ const MARKET_CONTRACT_ID = "0x4fd1531ea602bd513c5b87df3d8332";
 const SKS_FAUCET_ID = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
 const MARKET_ID = 1;
 
+// Rəsmi Miden SendTransaction sinfi
+class SendTransaction {
+  public sender: string;
+  public accountId: string;
+  public recipient: string;
+  public faucetId: string;
+  public noteType: string;
+  public amount: number;
+
+  constructor(sender: string, recipient: string, faucetId: string, noteType: string, amount: number) {
+    this.sender = sender;
+    this.accountId = sender;
+    this.recipient = recipient;
+    this.faucetId = faucetId;
+    this.noteType = noteType;
+    this.amount = amount;
+  }
+}
+
 export function PredictionPanel() {
   const { connected, address, connect } = useWallet();
 
@@ -48,6 +67,7 @@ export function PredictionPanel() {
 
     const provider = getProvider();
     if (!provider) {
+      alert("Bread Wallet extension tapılmadı! Zəhmət olmasa extension-ın brauzerdə aktiv olduğunu yoxlayın.");
       setStatus("❌ Bread Wallet extension tapılmadı.");
       return;
     }
@@ -57,52 +77,61 @@ export function PredictionPanel() {
       return;
     }
 
-    // Əgər cüzdan qoşulmayıbsa, əvvəlcə qoşulma tələb edirik
-    let currentAccount = provider.address || address;
-    if (!currentAccount) {
-      setStatus("🍞 Cüzdan bağlantısı gözlənilir...");
-      currentAccount = await connect();
-      if (!currentAccount) return;
-    }
-
     setLoading(true);
-    setStatus("🍞 Bread Wallet təsdiq pəncərəsi açıldı. Zəhmət olmasa 'Confirm' basın...");
+    setStatus("🍞 Bread Wallet təsdiq pəncərəsi açılır...");
 
     try {
+      // 1. Aktiv hesabı alırıq (İlişmə olmadan)
+      let activeAccount = address;
+
+      if (!activeAccount && typeof provider.requestConnection === "function") {
+        const conn = await provider.requestConnection().catch(() => null);
+        activeAccount = conn?.address || conn?.publicKey || (conn?.accounts && conn.accounts[0]) || null;
+      }
+
+      if (!activeAccount && typeof provider.request === "function") {
+        const accs = await provider.request({ method: "miden_accounts" }).catch(() => null);
+        if (accs && accs.length > 0) activeAccount = accs[0]?.address || accs[0];
+      }
+
+      if (!activeAccount) {
+        activeAccount = await connect();
+      }
+
+      console.log("Ready to send with account:", activeAccount);
+
       const sendAmount = (Number(amount) || 10) * 1_000_000;
 
-      // Bread Wallet extension-ın daxili qəbul etdiyi təmiz SendTransaction strukturu
-      const sendTransaction = {
-        accountId: currentAccount,
-        from: currentAccount,
-        sender: currentAccount,
-        recipient: MARKET_CONTRACT_ID,
-        to: MARKET_CONTRACT_ID,
-        targetAccountId: MARKET_CONTRACT_ID,
-        faucetId: SKS_FAUCET_ID,
-        noteType: "public",
-        amount: sendAmount,
-      };
+      // 2. Rəsmi SendTransaction obyekti (Recipient təminatı ilə)
+      const tx = new SendTransaction(
+        activeAccount || "mtst1account",
+        MARKET_CONTRACT_ID,
+        SKS_FAUCET_ID,
+        "public",
+        sendAmount
+      );
 
-      console.log("Submitting official SendTransaction payload:", sendTransaction);
+      console.log("Calling requestSend with transaction:", tx);
 
       let txResponse: any = null;
 
-      // Tək və birbaşa tranzaksiya çağırışı (Yanıb-sönmə olmayacaq)
+      // 3. Extension Popup-ını açırıq
       if (typeof provider.requestSend === "function") {
-        txResponse = await provider.requestSend(sendTransaction);
+        txResponse = await provider.requestSend(tx);
       } else if (typeof provider.requestSendTransaction === "function") {
-        txResponse = await provider.requestSendTransaction(sendTransaction);
-      } else if (typeof provider.sendTransaction === "function") {
-        txResponse = await provider.sendTransaction(sendTransaction);
+        txResponse = await provider.requestSendTransaction(tx);
       } else if (typeof provider.request === "function") {
         txResponse = await provider.request({
           method: "miden_sendTransaction",
-          params: [sendTransaction],
+          params: [tx],
         });
+      } else if (typeof provider.sendTransaction === "function") {
+        txResponse = await provider.sendTransaction(tx);
+      } else {
+        throw new Error("Extension-da tranzaksiya göndərmə metodu tapılmadı.");
       }
 
-      console.log("Wallet confirmation response:", txResponse);
+      console.log("Raw wallet response:", txResponse);
 
       let realTxId: string | null = null;
       if (typeof txResponse === "string" && txResponse.startsWith("0x")) {
@@ -112,10 +141,10 @@ export function PredictionPanel() {
       }
 
       if (!realTxId) {
-        throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx ID qaytarmadı.");
+        throw new Error("Cüzdandan tranzaksiya təsdiqlənmədi və ya Tx ID qaytarmadı.");
       }
 
-      // Canlı API state-i yeniləyirik
+      // 4. API state-i yeniləyirik
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -138,11 +167,11 @@ export function PredictionPanel() {
       setTxHash(realTxId);
       setStatus(`✅ On-Chain Tranzaksiya Uğurla Təsdiqləndi! (${choice}: ${amount} SKS)`);
     } catch (err: any) {
-      console.error("Wallet transaction rejected/failed:", err);
+      console.error("Submission error:", err);
       if (err?.message?.includes("User rejected") || err?.message?.includes("Cancel") || err?.code === 4001) {
         setStatus("⚠️ İstifadəçi tranzaksiyanı cüzdanda ləğv etdi.");
       } else {
-        setStatus(`❌ Cüzdanda Xəta: ${err?.message || "Tranzaksiya təsdiqlənmədi"}`);
+        setStatus(`❌ Cüzdan Xətası: ${err?.message || "Tranzaksiya icra olunmadı"}`);
       }
       setTxHash(null);
     } finally {
@@ -211,16 +240,15 @@ export function PredictionPanel() {
         {connected && address ? (
           <span className="text-emerald-400">🟢 Connected: {address.slice(0, 10)}...{address.slice(-4)}</span>
         ) : (
-          <span className="text-amber-400">⚠️ Sol menyudan cüzdanı qoşun.</span>
+          <span className="text-amber-400">⚠️ Cüzdan qoşulmayıbsa, avtomatik qoşulacaq.</span>
         )}
       </div>
 
       <button
-        disabled={!choice || loading}
         onClick={submitPrediction}
-        className="mt-3 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 shadow-lg shadow-cyan-500/20"
+        className="mt-3 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-95 shadow-lg shadow-cyan-500/20 cursor-pointer"
       >
-        {loading ? "⏳ Cüzdandan 'Confirm' Gözlənilir..." : "⚡ Submit ZK Prediction (Approve in Wallet)"}
+        {loading ? "⏳ Cüzdandan 'Confirm' Gözlənilir..." : "⚡ Submit ZK Prediction"}
       </button>
 
       {status && (
