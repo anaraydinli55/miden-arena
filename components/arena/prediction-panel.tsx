@@ -4,12 +4,8 @@ import { useState, useEffect } from "react";
 import { useWallet } from "@/components/wallet/wallet-provider";
 import { SendTransaction } from "@miden-sdk/miden-wallet-adapter";
 
-// 32-simvollu standart Miden Account Hex ID formatı
-const RAW_CONTRACT_ID = "0x4fd1531ea602bd513c5b87df3d8332";
-const MARKET_CONTRACT_ID = RAW_CONTRACT_ID.startsWith("0x") && RAW_CONTRACT_ID.slice(2).length === 30
-  ? "0x00" + RAW_CONTRACT_ID.slice(2)
-  : RAW_CONTRACT_ID;
-
+// Orijinal və Miden SDK tərəfindən təsdiqlənmiş rəsmi Hex Kontrakt ID
+const MARKET_CONTRACT_ID = "0x4fd1531ea602bd513c5b87df3d8332";
 const SKS_FAUCET_ID = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
 const MARKET_ID = 1;
 
@@ -89,12 +85,9 @@ export function PredictionPanel() {
         throw new Error("Cüzdanın aktiv hesabı oxuna bilmədi. Zəhmət olmasa cüzdanı qoşun.");
       }
 
-      console.log("Submitting transaction from active account:", activeAccount);
-      console.log("Target Market Contract ID (32-char hex):", MARKET_CONTRACT_ID);
-
       const sendAmount = (Number(amount) || 10) * 1_000_000;
 
-      // 2. Rəsmi SendTransaction instansiyası
+      // 2. Rəsmi SendTransaction instansiyası (Orijinal Hex ID ilə)
       const transaction = new SendTransaction(
         activeAccount,
         MARKET_CONTRACT_ID,
@@ -103,11 +96,11 @@ export function PredictionPanel() {
         sendAmount as any
       );
 
-      console.log("Official SendTransaction object:", transaction);
+      console.log("Submitting official SendTransaction:", transaction);
 
       let txResponse: any = null;
 
-      // 3. Extension Popup-ını açırıq
+      // 3. Extension ilə birbaşa requestSend çağırışı
       if (typeof provider.requestSend === "function") {
         txResponse = await provider.requestSend(transaction);
       } else if (typeof provider.requestSendTransaction === "function") {
@@ -119,11 +112,9 @@ export function PredictionPanel() {
           method: "miden_sendTransaction",
           params: [transaction],
         });
-      } else {
-        throw new Error("Extension-da tranzaksiya göndərmə metodu tapılmadı.");
       }
 
-      console.log("Wallet confirmation raw response:", txResponse);
+      console.log("Wallet confirmation response:", txResponse);
 
       let realTxId: string | null = null;
       if (typeof txResponse === "string" && txResponse.startsWith("0x")) {
@@ -232,7 +223,7 @@ export function PredictionPanel() {
         {connected && address ? (
           <span className="text-emerald-400">🟢 Connected: {address.slice(0, 10)}...{address.slice(-4)}</span>
         ) : (
-          <span className="text-amber-400">⚠️ Sol menyudan cüzdanı qoşun.</span>
+          <span className="text-amber-400">⚠️ Cüzdan qoşulmayıbsa, avtomatik qoşulacaq.</span>
         )}
       </div>
 
