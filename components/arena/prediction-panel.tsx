@@ -53,26 +53,45 @@ export function PredictionPanel() {
       return;
     }
 
-    if (!connected || !address) {
-      await connect();
-      return;
-    }
-
     if (!choice) {
       setStatus("⚠️ Zəhmət olmasa YES və ya NO seçin.");
       return;
     }
 
     setLoading(true);
-    setStatus("🍞 Bread Wallet təsdiq pəncərəsi açılır... Zəhmət olmasa 'Confirm' basın.");
+    setStatus("🍞 Bread Wallet bağlantısı yoxlanılır və popup açılır...");
 
     try {
+      // DƏQİQ AKTİV HESABI BİRBAŞA EXTENSION-DAN OXUYURUQ
+      let activeAccount: string | null = null;
+      if (typeof provider.request === "function") {
+        const accs = await provider.request({ method: "miden_accounts" }).catch(() => null);
+        if (accs && accs.length > 0) activeAccount = accs[0]?.address || accs[0];
+      }
+      if (!activeAccount && typeof provider.requestConnection === "function") {
+        const conn = await provider.requestConnection().catch(() => null);
+        activeAccount = conn?.address || conn?.publicKey || (conn?.accounts && conn.accounts[0]) || null;
+      }
+      if (!activeAccount) {
+        activeAccount = provider.address || address;
+      }
+
+      if (!activeAccount) {
+        activeAccount = await connect();
+      }
+
+      if (!activeAccount) {
+        throw new Error("Cüzdanın aktiv hesabı oxuna bilmədi. Zəhmət olmasa cüzdanı qoşun.");
+      }
+
+      console.log("Submitting transaction with active wallet account:", activeAccount);
+
       const sendAmount = (Number(amount) || 10) * 1_000_000;
 
-      // Extension üçün bütün mümkün recipient sahə adlarını dəqiq ötürürük:
       const sendTxPayload = {
-        sender: address,
-        from: address,
+        sender: activeAccount,
+        from: activeAccount,
+        accountId: activeAccount,
         recipient: MARKET_CONTRACT_ID,
         targetAccountId: MARKET_CONTRACT_ID,
         target_account_id: MARKET_CONTRACT_ID,
@@ -91,11 +110,10 @@ export function PredictionPanel() {
         },
       };
 
-      console.log("Submitting fully populated payload to Bread Extension:", sendTxPayload);
+      console.log("Sending payload to Miden Wallet:", sendTxPayload);
 
       let txResponse: any = null;
 
-      // Extension ilə dəqiq metod çağırışı
       if (typeof provider.requestSendTransaction === "function") {
         txResponse = await provider.requestSendTransaction(sendTxPayload);
       } else if (typeof provider.requestTransaction === "function") {
@@ -111,7 +129,7 @@ export function PredictionPanel() {
         txResponse = await provider.sendTransaction(sendTxPayload);
       }
 
-      console.log("Wallet confirmation response:", txResponse);
+      console.log("Wallet response:", txResponse);
 
       let realTxId: string | null = null;
       if (typeof txResponse === "string" && txResponse.startsWith("0x")) {
@@ -124,7 +142,7 @@ export function PredictionPanel() {
         throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx ID qaytarmadı.");
       }
 
-      // API üzərindən canlı hovuz xalını artırırıq
+      // API üzərindən canlı hovuz xalını yeniləyirik
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -225,7 +243,7 @@ export function PredictionPanel() {
       </div>
 
       <button
-        disabled={!choice || !connected || loading}
+        disabled={!choice || loading}
         onClick={submitPrediction}
         className="mt-3 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 shadow-lg shadow-cyan-500/20"
       >
