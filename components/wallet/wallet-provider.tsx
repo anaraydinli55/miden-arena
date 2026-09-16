@@ -5,6 +5,7 @@ import {
   useContext,
   useMemo,
   useState,
+  useEffect,
   type ReactNode,
 } from "react";
 
@@ -21,7 +22,6 @@ type WalletContextType = {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  // F5 basanda hemise qosulmamis baslayir
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
   const [balance, setBalance] = useState("0 SKS");
@@ -33,26 +33,44 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
   };
 
+  useEffect(() => {
+    const provider = getProvider();
+    if (!provider) return;
+
+    if (typeof provider.on === "function") {
+      provider.on("accountsChanged", (accounts: string[]) => {
+        if (accounts && accounts.length > 0) {
+          setAddress(accounts[0]);
+          setConnected(true);
+        } else {
+          setConnected(false);
+          setAddress(null);
+        }
+      });
+      provider.on("disconnect", () => {
+        setConnected(false);
+        setAddress(null);
+      });
+    }
+  }, []);
+
   const connect = async () => {
     setError(null);
     const provider = getProvider();
 
     if (!provider) {
-      const msg = "Bread / Miden Wallet extension tapılmadı.";
-      setError(msg);
-      alert(msg);
+      alert("Bread Wallet extension brauzerinizdə tapılmadı. Zəhmət olmasa Bread Wallet Chrome Extension quraşdırın.");
       return;
     }
 
     try {
       let accountAddress: string | null = null;
-
       if (typeof provider.requestConnection === "function") {
         const res = await provider.requestConnection();
-        accountAddress = res?.address || res?.publicKey || provider.address || null;
+        accountAddress = res?.address || res?.publicKey || (res?.accounts && res?.accounts[0]) || null;
       } else if (typeof provider.connect === "function") {
         const res = await provider.connect();
-        accountAddress = res?.address || res?.accounts?.[0] || provider.address || null;
+        accountAddress = res?.address || (res?.accounts && res?.accounts[0]) || null;
       } else if (typeof provider.request === "function") {
         const accounts = await provider.request({ method: "miden_requestAccounts" });
         accountAddress = accounts?.[0] || null;
@@ -62,27 +80,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         accountAddress = provider.address;
       }
 
-      if (!accountAddress) {
-        throw new Error("Cüzdandan hesab seçilmədi.");
+      if (accountAddress) {
+        setAddress(accountAddress);
+        setConnected(true);
       }
-
-      setAddress(accountAddress);
-      setConnected(true);
-      setError(null);
-    } catch (err: any) {
-      console.error("Connection error:", err);
-      setConnected(false);
-      setAddress(null);
-      setError(err?.message || "Bağlantı xətası");
+    } catch (e: any) {
+      console.error("Connect error:", e);
+      setError(e?.message || "Cüzdan bağlantısı rədd edildi.");
     }
   };
 
   const disconnect = () => {
     const provider = getProvider();
     if (provider && typeof provider.disconnect === "function") {
-      try {
-        provider.disconnect();
-      } catch (e) {}
+      try { provider.disconnect(); } catch (e) {}
     }
     setConnected(false);
     setAddress(null);

@@ -1,27 +1,9 @@
 "use client";
 
-import { useWallet } from "@miden-sdk/miden-wallet-adapter";
+import { useWallet } from "@/components/wallet/wallet-provider";
 
 export default function ConnectWallet() {
-  const { connected, address, connect, disconnect, select, wallet, wallets } = useWallet();
-
-  const handleConnect = async () => {
-    try {
-      if (wallet) {
-        await connect();
-        return;
-      }
-
-      if (wallets && wallets.length > 0) {
-        const targetWallet = wallets[0];
-        select(targetWallet.adapter.name);
-        // Birbaşa adapterin özünə connect edirik (State gecikməsi olmur)
-        await targetWallet.adapter.connect();
-      }
-    } catch (e: any) {
-      console.error("Connect error:", e);
-    }
-  };
+  const { connected, address, connect, disconnect } = useWallet();
 
   if (connected && address) {
     return (
@@ -41,10 +23,10 @@ export default function ConnectWallet() {
 
   return (
     <button
-      onClick={handleConnect}
+      onClick={connect}
       className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:opacity-90 active:scale-95"
     >
-      🍞 Connect Bread / Miden Wallet
+      🍞 Connect Bread Wallet
     </button>
   );
 }

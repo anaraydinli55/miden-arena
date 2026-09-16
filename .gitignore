@@ -8,3 +8,4 @@ build/
 *.mac
 keystore/
 *.sqlite3*
+.vercel
