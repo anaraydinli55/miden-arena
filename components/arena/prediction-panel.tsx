@@ -22,7 +22,7 @@ export function PredictionPanel() {
 
   const getProvider = () => {
     if (typeof window === "undefined") return null;
-    return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
+    return (window as any).midenWallet || (window as any).miden || (window as any).bread || null;
   };
 
   const fetchLiveState = async () => {
@@ -51,8 +51,8 @@ export function PredictionPanel() {
 
     const provider = getProvider();
     if (!provider) {
-      alert("Bread Wallet extension tapılmadı! Chrome toolbar-dan extension-ı yoxlayın.");
-      setStatus("❌ Bread Wallet extension tapılmadı.");
+      alert("Miden / Bread Wallet extension tapılmadı!");
+      setStatus("❌ Wallet extension tapılmadı.");
       return;
     }
 
@@ -62,25 +62,24 @@ export function PredictionPanel() {
     }
 
     setLoading(true);
-    setStatus("🍞 Bread Wallet bağlantısı yoxlanılır...");
+    setStatus("🍞 Miden Wallet təsdiq pəncərəsi açılır...");
 
     try {
-      // 1. Məcburi icazə sorğusu (Handshake)
-      let activeAccount: string | null = null;
+      // 1. Aktiv hesab və təmiz icazə
+      let activeAccount = address || provider.address;
 
-      if (typeof provider.requestConnection === "function") {
-        const res = await provider.requestConnection();
-        activeAccount = res?.address || res?.publicKey || (res?.accounts && res.accounts[0]) || null;
-      } else if (typeof provider.connect === "function") {
-        const res = await provider.connect();
-        activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
-      } else if (typeof provider.request === "function") {
-        const res = await provider.request({ method: "miden_requestConnection" }).catch(() => null);
-        activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
+      if (!activeAccount && typeof provider.connect === "function") {
+        try {
+          const res = await provider.connect();
+          activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
+        } catch (e) {}
       }
 
-      if (!activeAccount) {
-        activeAccount = address || provider.address;
+      if (!activeAccount && typeof provider.requestConnection === "function") {
+        try {
+          const res = await provider.requestConnection();
+          activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
+        } catch (e) {}
       }
 
       if (!activeAccount) {
@@ -88,30 +87,32 @@ export function PredictionPanel() {
       }
 
       if (!activeAccount) {
-        throw new Error("Cüzdan qoşulmadı. Zəhmət olmasa Chrome toolbar-dan Bread Wallet ikonuna basaraq icazə verin.");
+        throw new Error("Cüzdan bağlantısı təsdiqlənmədi.");
       }
 
-      setStatus("🍞 Tranzaksiya pəncərəsi açılır... Zəhmət olmasa 'Confirm' basın.");
+      // SKS 6 decimals - dəqiq string formatı (INVALID_PARAMS xətasının qarşısını alır)
+      const rawUnits = (Number(amount) || 10) * 1_000_000;
+      const sendAmountStr = rawUnits.toString();
 
-      const sendAmount = (Number(amount) || 10) * 1_000_000;
-
-      // Miden Extension-ın rəsmi parametrləri
+      // Rəsmi Miden Transaction Strukturu
       const txPayload = {
+        address: activeAccount,
+        accountId: activeAccount,
         from: activeAccount,
         sender: activeAccount,
-        accountId: activeAccount,
-        to: MARKET_CONTRACT_ID,
         recipient: MARKET_CONTRACT_ID,
+        to: MARKET_CONTRACT_ID,
         targetAccountId: MARKET_CONTRACT_ID,
         faucetId: SKS_FAUCET_ID,
         noteType: "public",
-        amount: sendAmount,
+        amount: sendAmountStr,
       };
 
-      console.log("Submitting RPC transaction payload to wallet:", txPayload);
+      console.log("Submitting validated payload to midenWallet:", txPayload);
 
       let txResponse: any = null;
 
+      // 2. Birbaşa requestSend / miden_sendTransaction çağırışı
       if (typeof provider.requestSend === "function") {
         txResponse = await provider.requestSend(txPayload);
       } else if (typeof provider.requestSendTransaction === "function") {
@@ -125,7 +126,7 @@ export function PredictionPanel() {
         });
       }
 
-      console.log("Wallet confirmation response:", txResponse);
+      console.log("Wallet response received:", txResponse);
 
       let realTxId: string | null = null;
       if (typeof txResponse === "string" && txResponse.startsWith("0x")) {
@@ -138,7 +139,7 @@ export function PredictionPanel() {
         throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx ID qaytarmadı.");
       }
 
-      // API yeniləməsi
+      // 3. API State Yeniləməsi
       try {
         const res = await fetch("/api/submit", {
           method: "POST",
