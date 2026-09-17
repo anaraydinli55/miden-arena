@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useWallet, getMidenProvider } from "@/components/wallet/wallet-provider";
+import { useWallet, getBreadProvider } from "@/components/wallet/wallet-provider";
 
 class SendTransaction {
   public readonly sender: string;
@@ -104,12 +104,11 @@ export function PredictionPanel() {
     setStatus(null);
     setTxHash(null);
 
-    // Eyni vahid provider-dən istifadə edirik
-    const activeProvider = provider || getMidenProvider();
+    const breadProvider = provider || getBreadProvider();
 
-    if (!activeProvider) {
-      alert("Bread / Miden Wallet extension tapılmadı!");
-      setStatus("❌ Wallet extension tapılmadı.");
+    if (!breadProvider) {
+      alert("Bread Wallet extension tapılmadı!");
+      setStatus("❌ Bread Wallet extension tapılmadı.");
       return;
     }
 
@@ -129,7 +128,7 @@ export function PredictionPanel() {
       }
 
       if (!activeAccount) {
-        throw new Error("Cüzdan bağlantısı təsdiqlənmədi.");
+        throw new Error("Bread Wallet bağlantısı təsdiqlənmədi.");
       }
 
       const sendUnits = (Number(amount) || 10) * 1_000_000;
@@ -142,24 +141,24 @@ export function PredictionPanel() {
         sendUnits
       );
 
-      console.log("Submitting transaction using connected wallet provider:", transaction);
+      console.log("Submitting transaction exclusively to Bread Wallet:", transaction);
 
       let txResponse: any = null;
 
-      if (typeof activeProvider.requestSend === "function") {
-        txResponse = await activeProvider.requestSend(transaction);
-      } else if (typeof activeProvider.requestSendTransaction === "function") {
-        txResponse = await activeProvider.requestSendTransaction(transaction);
-      } else if (typeof activeProvider.sendTransaction === "function") {
-        txResponse = await activeProvider.sendTransaction(transaction);
-      } else if (typeof activeProvider.request === "function") {
-        txResponse = await activeProvider.request({
+      if (typeof breadProvider.requestSend === "function") {
+        txResponse = await breadProvider.requestSend(transaction);
+      } else if (typeof breadProvider.requestSendTransaction === "function") {
+        txResponse = await breadProvider.requestSendTransaction(transaction);
+      } else if (typeof breadProvider.sendTransaction === "function") {
+        txResponse = await breadProvider.sendTransaction(transaction);
+      } else if (typeof breadProvider.request === "function") {
+        txResponse = await breadProvider.request({
           method: "miden_sendTransaction",
           params: [transaction],
         });
       }
 
-      console.log("Wallet confirmation response:", txResponse);
+      console.log("Bread Wallet confirmation response:", txResponse);
 
       let realTxId = extractTxHash(txResponse);
 
@@ -170,7 +169,7 @@ export function PredictionPanel() {
       }
 
       if (!realTxId) {
-        throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi.");
+        throw new Error("Bread Wallet tranzaksiyanı təsdiqləmədi.");
       }
 
       try {
@@ -203,7 +202,7 @@ export function PredictionPanel() {
       setTxHash(realTxId);
       setStatus(`✅ On-Chain Tranzaksiya Uğurla Təsdiqləndi! (${choice}: ${amount} SKS)`);
     } catch (err: any) {
-      console.error("Submission Error Log:", err?.message || err);
+      console.error("Bread Submission Error:", err?.message || err);
       if (err?.message?.includes("User rejected") || err?.message?.includes("Cancel") || err?.code === 4001) {
         setStatus("⚠️ İstifadəçi tranzaksiyanı cüzdanda ləğv etdi.");
       } else {
