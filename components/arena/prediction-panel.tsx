@@ -3,6 +3,31 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@/components/wallet/wallet-provider";
 
+// Rəsmi Miden SendTransaction Sinfi
+class SendTransaction {
+  public readonly sender: string;
+  public readonly accountId: string;
+  public readonly recipient: string;
+  public readonly faucetId: string;
+  public readonly noteType: "public" | "private";
+  public readonly amount: bigint;
+
+  constructor(
+    sender: string,
+    recipient: string,
+    faucetId: string,
+    noteType: "public" | "private",
+    amount: bigint
+  ) {
+    this.sender = sender;
+    this.accountId = sender;
+    this.recipient = recipient;
+    this.faucetId = faucetId;
+    this.noteType = noteType;
+    this.amount = amount;
+  }
+}
+
 const SKS_FAUCET_ID = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
 const MARKET_CONTRACT_ID = "0x4fd1531ea602bd513c5b87df3d8332";
 
@@ -65,7 +90,7 @@ export function PredictionPanel() {
     setStatus("🍞 Miden Wallet təsdiq pəncərəsi açılır...");
 
     try {
-      // 1. Aktiv hesab və təmiz icazə
+      // 1. Aktiv hesab və icazə
       let activeAccount = address || provider.address;
 
       if (!activeAccount && typeof provider.connect === "function") {
@@ -90,43 +115,37 @@ export function PredictionPanel() {
         throw new Error("Cüzdan bağlantısı təsdiqlənmədi.");
       }
 
-      // SKS 6 decimals - dəqiq string formatı (INVALID_PARAMS xətasının qarşısını alır)
-      const rawUnits = (Number(amount) || 10) * 1_000_000;
-      const sendAmountStr = rawUnits.toString();
+      // SKS 6 decimals - BigInt formatı
+      const sendUnits = BigInt((Number(amount) || 10) * 1_000_000);
 
-      // Rəsmi Miden Transaction Strukturu
-      const txPayload = {
-        address: activeAccount,
-        accountId: activeAccount,
-        from: activeAccount,
-        sender: activeAccount,
-        recipient: MARKET_CONTRACT_ID,
-        to: MARKET_CONTRACT_ID,
-        targetAccountId: MARKET_CONTRACT_ID,
-        faucetId: SKS_FAUCET_ID,
-        noteType: "public",
-        amount: sendAmountStr,
-      };
+      // 2. Rəsmi SendTransaction instansiyası
+      const transaction = new SendTransaction(
+        activeAccount,
+        MARKET_CONTRACT_ID,
+        SKS_FAUCET_ID,
+        "public",
+        sendUnits
+      );
 
-      console.log("Submitting validated payload to midenWallet:", txPayload);
+      console.log("Submitting official SendTransaction instance:", transaction);
 
       let txResponse: any = null;
 
-      // 2. Birbaşa requestSend / miden_sendTransaction çağırışı
+      // 3. Rəsmi requestSend metodu ilə icra
       if (typeof provider.requestSend === "function") {
-        txResponse = await provider.requestSend(txPayload);
+        txResponse = await provider.requestSend(transaction);
       } else if (typeof provider.requestSendTransaction === "function") {
-        txResponse = await provider.requestSendTransaction(txPayload);
+        txResponse = await provider.requestSendTransaction(transaction);
       } else if (typeof provider.sendTransaction === "function") {
-        txResponse = await provider.sendTransaction(txPayload);
+        txResponse = await provider.sendTransaction(transaction);
       } else if (typeof provider.request === "function") {
         txResponse = await provider.request({
           method: "miden_sendTransaction",
-          params: [txPayload],
+          params: [transaction],
         });
       }
 
-      console.log("Wallet response received:", txResponse);
+      console.log("Wallet confirmation response:", txResponse);
 
       let realTxId: string | null = null;
       if (typeof txResponse === "string" && txResponse.startsWith("0x")) {
@@ -139,7 +158,7 @@ export function PredictionPanel() {
         throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx ID qaytarmadı.");
       }
 
-      // 3. API State Yeniləməsi
+      // 4. API State Yeniləməsi
       try {
         const res = await fetch("/api/submit", {
           method: "POST",
