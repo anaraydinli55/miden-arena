@@ -8,7 +8,9 @@ function getLocalBreadProvider() {
   return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
 }
 
-const SKS_FAUCET_ID = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
+// Cüzdandakı real SKS Faucet ID-si
+const SKS_FAUCET_ID = "mtst1ap8thrsn8ta805gkqq5g4c227cqjen58_qr7qqq9wr6w";
+// Canlı Miden 0.16 Testnet-də yaradılmış rəsmi Real On-Chain Hesab ID-si
 const MARKET_CONTRACT_ID = "0xc05fa91f939040d1751dc990cb2dde";
 
 function extractTxHash(response: any): string | null {
@@ -118,6 +120,7 @@ export function PredictionPanel() {
 
       const sendUnits = Number(amount) || 10;
 
+      // Real Faucet ID və Real On-Chain Kontrakt ilə dəqiq parametr
       const txObj = {
         senderAddress: activeAccount,
         recipientAddress: MARKET_CONTRACT_ID,
@@ -126,7 +129,7 @@ export function PredictionPanel() {
         amount: sendUnits,
       };
 
-      console.log("Submitting official standard payload to real onchain account:", txObj);
+      console.log("Submitting official payload with verified SKS Faucet:", txObj);
 
       let txResponse: any = null;
 
@@ -160,14 +163,18 @@ export function PredictionPanel() {
         );
       }
 
-      const realTxId = extractTxHash(txResponse);
+      let realTxId = extractTxHash(txResponse);
+
+      if (!realTxId && txResponse && typeof txResponse === "object") {
+        realTxId =
+          txResponse.transactionId ||
+          txResponse.id ||
+          txResponse.hash ||
+          null;
+      }
 
       if (!realTxId) {
-        throw new Error(
-          "Bread Wallet cavabında təsdiqlənmiş tranzaksiya ID-si yox idi — " +
-            "əməliyyat extension tərəfindən rədd edilmiş ola bilər. Bread Wallet-in " +
-            "Activity panelini yoxlayın."
-        );
+        throw new Error("Bread Wallet cavabında təsdiqlənmiş tranzaksiya ID-si tapılmadı.");
       }
 
       try {
