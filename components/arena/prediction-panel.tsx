@@ -3,36 +3,9 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@/components/wallet/wallet-provider";
 
-// Birbaşa fayl daxili Bread Wallet provayderi
 function getLocalBreadProvider() {
   if (typeof window === "undefined") return null;
   return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
-}
-
-class SendTransaction {
-  public readonly sender: string;
-  public readonly accountId: string;
-  public readonly recipient: string;
-  public readonly targetAccountId: string;
-  public readonly faucetId: string;
-  public readonly noteType: string;
-  public readonly amount: number;
-
-  constructor(
-    sender: string,
-    recipient: string,
-    faucetId: string,
-    noteType: string,
-    amount: number
-  ) {
-    this.sender = sender;
-    this.accountId = sender;
-    this.recipient = recipient;
-    this.targetAccountId = recipient;
-    this.faucetId = faucetId;
-    this.noteType = noteType;
-    this.amount = amount;
-  }
 }
 
 const SKS_FAUCET_ID = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
@@ -139,28 +112,33 @@ export function PredictionPanel() {
 
       const sendUnits = (Number(amount) || 10) * 1_000_000;
 
-      const transaction = new SendTransaction(
-        activeAccount,
-        MARKET_CONTRACT_ID,
-        SKS_FAUCET_ID,
-        "public",
-        sendUnits
-      );
+      // Bread Wallet-in INVALID_PARAMS atmaması üçün dəqiq parametrlər
+      const transactionPayload = {
+        accountId: activeAccount,
+        sender: activeAccount,
+        from: activeAccount,
+        recipient: MARKET_CONTRACT_ID,
+        targetAccountId: MARKET_CONTRACT_ID,
+        to: MARKET_CONTRACT_ID,
+        faucetId: SKS_FAUCET_ID,
+        noteType: "public",
+        amount: sendUnits,
+      };
 
-      console.log("Submitting transaction exclusively to Bread Wallet:", transaction);
+      console.log("Submitting transaction payload to Bread Wallet:", transactionPayload);
 
       let txResponse: any = null;
 
       if (typeof breadProvider.requestSend === "function") {
-        txResponse = await breadProvider.requestSend(transaction);
+        txResponse = await breadProvider.requestSend(transactionPayload);
       } else if (typeof breadProvider.requestSendTransaction === "function") {
-        txResponse = await breadProvider.requestSendTransaction(transaction);
+        txResponse = await breadProvider.requestSendTransaction(transactionPayload);
       } else if (typeof breadProvider.sendTransaction === "function") {
-        txResponse = await breadProvider.sendTransaction(transaction);
+        txResponse = await breadProvider.sendTransaction(transactionPayload);
       } else if (typeof breadProvider.request === "function") {
         txResponse = await breadProvider.request({
           method: "miden_sendTransaction",
-          params: [transaction],
+          params: [transactionPayload],
         });
       }
 
