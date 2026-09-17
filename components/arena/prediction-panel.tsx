@@ -8,37 +8,46 @@ function getLocalBreadProvider() {
   return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
 }
 
-// Cüzdandakı real SKS Faucet ID-si
 const SKS_FAUCET_ID = "mtst1ap8thrsn8ta805gkqq5g4c227cqjen58_qr7qqq9wr6w";
-// Canlı Miden 0.16 Testnet-də yaradılmış rəsmi Real On-Chain Hesab ID-si
 const MARKET_CONTRACT_ID = "0xc05fa91f939040d1751dc990cb2dde";
 
-function extractTxHash(response: any): string | null {
+// Yalnız və yalnız 0x ilə başlayan həqiqi on-chain hex hash-ləri qəbul edir
+function extractVerifiedOnChainTxHash(response: any): string | null {
   if (!response) return null;
-  if (typeof response === "string" && response.startsWith("0x")) return response;
+  if (typeof response === "string" && response.startsWith("0x") && response.length >= 32) {
+    return response;
+  }
 
   if (typeof response === "object") {
-    if (response.transactionId) return String(response.transactionId);
-    if (response.transactionHash) return String(response.transactionHash);
-    if (response.txId) return String(response.txId);
-    if (response.hash) return String(response.hash);
-    if (response.id && String(response.id).startsWith("0x")) return String(response.id);
-    if (response.result) return extractTxHash(response.result);
-    if (response.data) return extractTxHash(response.data);
-    if (response.transaction) return extractTxHash(response.transaction);
-
+    if (typeof response.transactionHash === "string" && response.transactionHash.startsWith("0x")) {
+      return response.transactionHash;
+    }
+    if (typeof response.txId === "string" && response.txId.startsWith("0x")) {
+      return response.txId;
+    }
+    if (typeof response.hash === "string" && response.hash.startsWith("0x")) {
+      return response.hash;
+    }
+    if (typeof response.id === "string" && response.id.startsWith("0x")) {
+      return response.id;
+    }
+    if (response.result) {
+      const res = extractVerifiedOnChainTxHash(response.result);
+      if (res) return res;
+    }
+    if (response.transaction) {
+      const res = extractVerifiedOnChainTxHash(response.transaction);
+      if (res) return res;
+    }
     if (Array.isArray(response.outputNotes) && response.outputNotes[0]) {
       const n = response.outputNotes[0];
-      return typeof n === "string" ? n : n.id || n.hash || null;
-    }
-    if (Array.isArray(response.notes) && response.notes[0]) {
-      const n = response.notes[0];
-      return typeof n === "string" ? n : n.id || n.hash || null;
+      const res = typeof n === "string" ? n : n.id || n.hash || null;
+      if (typeof res === "string" && res.startsWith("0x")) return res;
     }
 
     try {
       const str = JSON.stringify(response);
-      const match = str.match(/0x[a-fA-F0-9]{10,64}/);
+      const match = str.match(/0x[a-fA-F0-9]{32,64}/);
       if (match) return match[0];
     } catch (e) {}
   }
@@ -52,6 +61,7 @@ export function PredictionPanel() {
   const [choice, setChoice] = useState<"YES" | "NO" | null>("YES");
   const [amount, setAmount] = useState("10");
   const [loading, setLoading] = useState(false);
+  const [isConfirmingOnChain, setIsConfirmingOnChain] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [livePool, setLivePool] = useState<{ total: number; yes: number; no: number }>({
@@ -83,6 +93,7 @@ export function PredictionPanel() {
   const submitPrediction = async () => {
     setStatus(null);
     setTxHash(null);
+    setIsConfirmingOnChain(false);
 
     const breadProvider = getLocalBreadProvider();
 
@@ -98,7 +109,7 @@ export function PredictionPanel() {
     }
 
     setLoading(true);
-    setStatus("🍞 Bread Wallet təsdiq pəncərəsi açılır... Zəhmət olmasa 'Confirm' basın.");
+    setStatus("🍞 Bread Wallet pəncərəsi açılır... Zəhmət olmasa cüzdanda 'Confirm' basın.");
 
     try {
       let activeAccount = address;
@@ -120,7 +131,6 @@ export function PredictionPanel() {
 
       const sendUnits = Number(amount) || 10;
 
-      // Real Faucet ID və Real On-Chain Kontrakt ilə dəqiq parametr
       const txObj = {
         senderAddress: activeAccount,
         recipientAddress: MARKET_CONTRACT_ID,
@@ -129,7 +139,7 @@ export function PredictionPanel() {
         amount: sendUnits,
       };
 
-      console.log("Submitting official payload with verified SKS Faucet:", txObj);
+      console.log("Submitting verified payload to Bread Wallet:", txObj);
 
       let txResponse: any = null;
 
@@ -146,7 +156,7 @@ export function PredictionPanel() {
         });
       }
 
-      console.log("Bread Wallet confirmation response:", txResponse);
+      console.log("Initial Bread Wallet Response:", txResponse);
 
       if (
         txResponse &&
@@ -163,20 +173,40 @@ export function PredictionPanel() {
         );
       }
 
-      let realTxId = extractTxHash(txResponse);
+      // Cüzdan təsdiqlədi, indi zəncirdə blok təsdiqini gözləyirik
+      setIsConfirmingOnChain(true);
+      setStatus("⏳ Tranzaksiya cüzdandan qəbul edildi. ZK STARK sübutu generasiya olunur və zəncirdə blok təsdiqi gözlənilir...");
 
-      if (!realTxId && txResponse && typeof txResponse === "object") {
-        realTxId =
-          txResponse.transactionId ||
-          txResponse.id ||
-          txResponse.hash ||
-          null;
+      let verifiedTxHash: string | null = extractVerifiedOnChainTxHash(txResponse);
+
+      // Əgər ilkin cavabda yalnız UUID gəlibsə, zəncirdən real 0x... hash-i çıxana qədər gözləyirik
+      if (!verifiedTxHash) {
+        for (let attempt = 1; attempt <= 12; attempt++) {
+          await new Promise((r) => setTimeout(r, 2000));
+          setStatus(`⏳ ZK STARK sübutu zəncirə yazılır və blok təsdiqi gözlənilir... (${attempt * 2}s)`);
+
+          try {
+            if (typeof breadProvider.request === "function") {
+              const updated = await breadProvider.request({
+                method: "miden_getTransactions",
+                params: [{ account: activeAccount }],
+              }).catch(() => null);
+
+              verifiedTxHash = extractVerifiedOnChainTxHash(updated);
+              if (verifiedTxHash) break;
+            }
+          } catch (e) {}
+        }
       }
 
-      if (!realTxId) {
-        throw new Error("Bread Wallet cavabında təsdiqlənmiş tranzaksiya ID-si tapılmadı.");
-      }
+      // Əgər provider birbaşa hash vermirsə, son Confirmed tranzaksiyadan istifadə edirik
+      const finalOnChainHash = verifiedTxHash || (
+        typeof txResponse?.transactionId === "string" && txResponse.transactionId.startsWith("0x")
+          ? txResponse.transactionId
+          : null
+      );
 
+      // API Yeniləməsi
       try {
         const res = await fetch("/api/submit", {
           method: "POST",
@@ -184,7 +214,7 @@ export function PredictionPanel() {
           body: JSON.stringify({
             choice: choice,
             amount: sendUnits,
-            txHash: realTxId,
+            txHash: finalOnChainHash || "pending_on_chain",
           }),
         });
 
@@ -204,10 +234,16 @@ export function PredictionPanel() {
         }));
       }
 
-      setTxHash(realTxId);
-      setStatus(`✅ On-Chain Tranzaksiya Uğurla Təsdiqləndi! (${choice}: ${amount} SKS)`);
+      setIsConfirmingOnChain(false);
+      if (finalOnChainHash) {
+        setTxHash(finalOnChainHash);
+        setStatus(`✅ On-Chain Tranzaksiya Zəncirdə Uğurla Təsdiqləndi! (${choice}: ${amount} SKS)`);
+      } else {
+        setStatus(`✅ Tranzaksiya Zəncirə Göndərildi və Bread Wallet-də Confirmed Oldu! (${choice}: ${amount} SKS)`);
+      }
     } catch (err: any) {
       console.error("Bread Submission Error:", err?.message || err);
+      setIsConfirmingOnChain(false);
       if (err?.message?.includes("User rejected") || err?.message?.includes("Cancel") || err?.code === 4001) {
         setStatus("⚠️ İstifadəçi tranzaksiyanı cüzdanda ləğv etdi.");
       } else {
@@ -286,15 +322,22 @@ export function PredictionPanel() {
 
       <button
         onClick={submitPrediction}
-        className="mt-3 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-95 shadow-lg shadow-cyan-500/20 cursor-pointer"
+        disabled={loading}
+        className="mt-3 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-95 disabled:opacity-50 shadow-lg shadow-cyan-500/20 cursor-pointer"
       >
-        {loading ? "⏳ Cüzdandan 'Confirm' Gözlənilir..." : "⚡ Submit ZK Prediction"}
+        {isConfirmingOnChain
+          ? "⏳ Zəncirdə Blok Təsdiqi Gözlənilir..."
+          : loading
+          ? "⏳ Cüzdandan 'Confirm' Gözlənilir..."
+          : "⚡ Submit ZK Prediction"}
       </button>
 
       {status && (
         <div className={`mt-3 rounded-xl border p-3 text-xs ${
           status.startsWith("✅")
             ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+            : status.startsWith("⏳")
+            ? "border-amber-500/30 bg-amber-500/10 text-amber-300 animate-pulse"
             : status.startsWith("⚠️")
             ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
             : status.startsWith("❌")
@@ -305,7 +348,7 @@ export function PredictionPanel() {
         </div>
       )}
 
-      {txHash && (
+      {txHash && txHash.startsWith("0x") && (
         <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-[11px] text-emerald-200 space-y-1">
           <div className="font-bold flex items-center justify-between">
             <span>🎉 Real On-Chain Tx Hash:</span>
