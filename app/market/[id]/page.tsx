@@ -1,50 +1,30 @@
 import { PredictionPanel } from "@/components/arena/prediction-panel";
+import { DeployMarketAccount } from "@/components/arena/deploy-market-account";
 
-export default async function Market({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-
+export default function MarketDetailPage() {
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10">
-      <div className="text-xs uppercase tracking-[.25em] text-white/35">
-        Market / {id}
-      </div>
-      <div className="mt-3 grid gap-5 lg:grid-cols-[1fr_360px]">
-        <div className="card rounded-2xl p-6">
-          <div className="flex justify-between">
-            <div>
-              <span className="text-xs text-white/40">PROTOCOL</span>
-              <h1 className="mt-2 text-3xl font-bold">
-                Will Miden mainnet launch before Q2 2027?
-              </h1>
-            </div>
-            <div className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/50">
-              OPEN
-            </div>
-          </div>
-
-          <div className="mt-10 flex h-72 items-end gap-1 border-b border-white/10 p-4">
-            {[42, 46, 44, 49, 53, 50, 56, 55, 61, 64, 62, 68, 66, 68, 72, 69, 68].map(
-              (h, i) => (
-                <div
-                  key={i}
-                  className="flex-1 rounded-t bg-white/60"
-                  style={{ height: `${h}%` }}
-                />
-              )
-            )}
-          </div>
-
-          <div className="mt-5 flex justify-between text-xs text-white/35">
-            <span>Probability history</span>
-            <span>YES 68% · NO 32%</span>
+    <div className="container mx-auto max-w-6xl p-6 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="card rounded-2xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
+            <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-400">
+              PROTOCOL PREDICTION
+            </span>
+            <h1 className="text-2xl font-bold text-white">
+              Will Miden mainnet launch before Q2 2027?
+            </h1>
+            <p className="text-xs text-white/50">
+              Prediction market on Polygon Miden Testnet with ZK STARK rollups and private notes.
+            </p>
           </div>
         </div>
 
-        <PredictionPanel />
+        <div className="space-y-4">
+          {/* Müvəqqəti hesab yaratma aləti */}
+          <DeployMarketAccount />
+          {/* Əsas Prediction Paneli */}
+          <PredictionPanel />
+        </div>
       </div>
     </div>
   );
