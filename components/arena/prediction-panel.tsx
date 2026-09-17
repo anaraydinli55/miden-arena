@@ -62,19 +62,26 @@ export function PredictionPanel() {
     }
 
     setLoading(true);
-    setStatus("🍞 Bread Wallet təsdiq pəncərəsi açılır...");
+    setStatus("🍞 Bread Wallet bağlantısı təsdiqlənir...");
 
     try {
-      let activeAccount = address;
+      // 1. MƏCBURİ İCAZƏ (GRANT): Əgər icazə yoxdursa, cüzdandan icazə pəncərəsini açırıq
+      let activeAccount: string | null = null;
 
-      if (!activeAccount && typeof provider.request === "function") {
-        const accs = await provider.request({ method: "miden_accounts" }).catch(() => null);
-        if (accs && accs.length > 0) activeAccount = accs[0]?.address || accs[0];
+      try {
+        if (typeof provider.requestConnection === "function") {
+          const res = await provider.requestConnection();
+          activeAccount = res?.address || res?.publicKey || (res?.accounts && res.accounts[0]) || null;
+        } else if (typeof provider.request === "function") {
+          const res = await provider.request({ method: "miden_requestAccounts" });
+          activeAccount = res?.[0] || null;
+        }
+      } catch (connErr) {
+        console.warn("Permission grant prompt result:", connErr);
       }
 
-      if (!activeAccount && typeof provider.requestConnection === "function") {
-        const conn = await provider.requestConnection().catch(() => null);
-        activeAccount = conn?.address || conn?.publicKey || (conn?.accounts && conn.accounts[0]) || null;
+      if (!activeAccount) {
+        activeAccount = address || provider.address;
       }
 
       if (!activeAccount) {
@@ -82,12 +89,13 @@ export function PredictionPanel() {
       }
 
       if (!activeAccount) {
-        throw new Error("Cüzdanın aktiv hesabı oxuna bilmədi. Zəhmət olmasa sol menyudan cüzdanı qoşun.");
+        throw new Error("Cüzdan icazəsi (GRANT) təsdiqlənmədi. Zəhmət olmasa cüzdanda 'Connect' basın.");
       }
+
+      setStatus("🍞 Tranzaksiya pəncərəsi açılır... Zəhmət olmasa 'Confirm' basın.");
 
       const sendAmount = (Number(amount) || 10) * 1_000_000;
 
-      // Standart Miden Transaction Parametrləri
       const txParams = {
         sender: activeAccount,
         accountId: activeAccount,
@@ -102,23 +110,12 @@ export function PredictionPanel() {
 
       let txResponse: any = null;
 
-      // Intercom-u qırmayacaq standart EIP-1193 RPC çağırışı
+      // 2. Tranzaksiyanı göndəririk (İcazə alındığı üçün artıq NOT_GRANTED çıxmayacaq)
       if (typeof provider.request === "function") {
-        try {
-          txResponse = await provider.request({
-            method: "miden_sendTransaction",
-            params: [txParams],
-          });
-        } catch (e: any) {
-          if (e?.message?.includes("Not Found")) {
-            txResponse = await provider.request({
-              method: "miden_send",
-              params: [txParams],
-            });
-          } else {
-            throw e;
-          }
-        }
+        txResponse = await provider.request({
+          method: "miden_sendTransaction",
+          params: [txParams],
+        });
       } else if (typeof provider.sendTransaction === "function") {
         txResponse = await provider.sendTransaction(txParams);
       } else if (typeof provider.requestSend === "function") {
@@ -138,7 +135,7 @@ export function PredictionPanel() {
         throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx ID qaytarmadı.");
       }
 
-      // API yeniləməsi
+      // 3. API State-i yeniləyirik
       try {
         const res = await fetch("/api/submit", {
           method: "POST",
