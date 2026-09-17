@@ -117,9 +117,9 @@ export function PredictionPanel() {
         throw new Error("Bread Wallet bağlantısı təsdiqlənmədi.");
       }
 
-      const sendUnits = (Number(amount) || 10) * 1_000_000;
+      // SKS Base Unit: 1 SKS = 1 vahid (balans aşımının qarşısını alır)
+      const sendUnits = Number(amount) || 10;
 
-      // Rəsmi MidenSendTransaction interface-i (@miden-sdk/miden-wallet-adapter-base)
       const txObj = {
         senderAddress: activeAccount,
         recipientAddress: MARKET_CONTRACT_ID,
@@ -158,16 +158,30 @@ export function PredictionPanel() {
 
       console.log("Bread Wallet confirmation response:", txResponse);
 
-      let realTxId = extractTxHash(txResponse);
-
-      if (!realTxId && txResponse && typeof txResponse === "object") {
-        realTxId = "0x" + Array.from(crypto.getRandomValues(new Uint8Array(32)))
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join("");
+      if (
+        txResponse &&
+        typeof txResponse === "object" &&
+        (txResponse.error ||
+          txResponse.success === false ||
+          (typeof txResponse.status === "string" &&
+            /fail|error|reject/i.test(txResponse.status)))
+      ) {
+        throw new Error(
+          txResponse.error?.message ||
+            txResponse.error ||
+            `Bread Wallet tranzaksiyanı rədd etdi (status: ${txResponse.status}).`
+        );
       }
 
+      const realTxId = extractTxHash(txResponse);
+
+      // YALNIZ real hash olduqda qəbul edilir — heç bir saxta/mock hash generasiyası YOXDUR
       if (!realTxId) {
-        throw new Error("Bread Wallet tranzaksiyanı təsdiqləmədi.");
+        throw new Error(
+          "Bread Wallet cavabında təsdiqlənmiş tranzaksiya ID-si yox idi — " +
+            "əməliyyat extension tərəfindən rədd edilmiş ola bilər. Bread Wallet-in " +
+            "Activity panelini yoxlayın."
+        );
       }
 
       try {
