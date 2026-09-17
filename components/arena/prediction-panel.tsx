@@ -62,23 +62,21 @@ export function PredictionPanel() {
     }
 
     setLoading(true);
-    setStatus("🍞 Bread Wallet bağlantısı təsdiqlənir...");
+    setStatus("🍞 Bread Wallet bağlantısı yoxlanılır...");
 
     try {
-      // 1. MƏCBURİ İCAZƏ (GRANT): Əgər icazə yoxdursa, cüzdandan icazə pəncərəsini açırıq
+      // 1. Aktiv hesabı alırıq və sessiyanı təzələyirik (NOT_GRANTED olmaması üçün)
       let activeAccount: string | null = null;
 
       try {
-        if (typeof provider.requestConnection === "function") {
+        if (typeof provider.connect === "function") {
+          const res = await provider.connect();
+          activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
+        } else if (typeof provider.requestConnection === "function") {
           const res = await provider.requestConnection();
-          activeAccount = res?.address || res?.publicKey || (res?.accounts && res.accounts[0]) || null;
-        } else if (typeof provider.request === "function") {
-          const res = await provider.request({ method: "miden_requestAccounts" });
-          activeAccount = res?.[0] || null;
+          activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
         }
-      } catch (connErr) {
-        console.warn("Permission grant prompt result:", connErr);
-      }
+      } catch (e) {}
 
       if (!activeAccount) {
         activeAccount = address || provider.address;
@@ -89,40 +87,41 @@ export function PredictionPanel() {
       }
 
       if (!activeAccount) {
-        throw new Error("Cüzdan icazəsi (GRANT) təsdiqlənmədi. Zəhmət olmasa cüzdanda 'Connect' basın.");
+        throw new Error("Cüzdan bağlantısı tapılmadı.");
       }
 
       setStatus("🍞 Tranzaksiya pəncərəsi açılır... Zəhmət olmasa 'Confirm' basın.");
 
       const sendAmount = (Number(amount) || 10) * 1_000_000;
 
-      const txParams = {
+      // Miden Extension-ın dəqiq qəbul etdiyi parametr formatı
+      const txPayload = {
         sender: activeAccount,
-        accountId: activeAccount,
         recipient: MARKET_CONTRACT_ID,
-        targetAccountId: MARKET_CONTRACT_ID,
         faucetId: SKS_FAUCET_ID,
         noteType: "public",
         amount: sendAmount,
       };
 
-      console.log("Submitting RPC transaction payload to wallet:", txParams);
+      console.log("Submitting cleaned transaction payload:", txPayload);
 
       let txResponse: any = null;
 
-      // 2. Tranzaksiyanı göndəririk (İcazə alındığı üçün artıq NOT_GRANTED çıxmayacaq)
-      if (typeof provider.request === "function") {
+      // Extension ilə birbaşa metod çağırışları
+      if (typeof provider.requestSend === "function") {
+        txResponse = await provider.requestSend(txPayload);
+      } else if (typeof provider.requestSendTransaction === "function") {
+        txResponse = await provider.requestSendTransaction(txPayload);
+      } else if (typeof provider.sendTransaction === "function") {
+        txResponse = await provider.sendTransaction(txPayload);
+      } else if (typeof provider.request === "function") {
         txResponse = await provider.request({
           method: "miden_sendTransaction",
-          params: [txParams],
+          params: [txPayload],
         });
-      } else if (typeof provider.sendTransaction === "function") {
-        txResponse = await provider.sendTransaction(txParams);
-      } else if (typeof provider.requestSend === "function") {
-        txResponse = await provider.requestSend(txParams);
       }
 
-      console.log("Wallet response received:", txResponse);
+      console.log("Wallet confirmation response:", txResponse);
 
       let realTxId: string | null = null;
       if (typeof txResponse === "string" && txResponse.startsWith("0x")) {
@@ -135,7 +134,7 @@ export function PredictionPanel() {
         throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx ID qaytarmadı.");
       }
 
-      // 3. API State-i yeniləyirik
+      // API State yeniləməsi
       try {
         const res = await fetch("/api/submit", {
           method: "POST",
@@ -166,7 +165,7 @@ export function PredictionPanel() {
       setTxHash(realTxId);
       setStatus(`✅ On-Chain Tranzaksiya Uğurla Təsdiqləndi! (${choice}: ${amount} SKS)`);
     } catch (err: any) {
-      console.error("Detailed Submission Error:", err?.message || err);
+      console.error("Submission Error Log:", err?.message || err);
       if (err?.message?.includes("User rejected") || err?.message?.includes("Cancel") || err?.code === 4001) {
         setStatus("⚠️ İstifadəçi tranzaksiyanı cüzdanda ləğv etdi.");
       } else {
