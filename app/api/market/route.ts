@@ -5,7 +5,7 @@ let marketState = {
   total_pool: 20,
   yes_pool: 20,
   no_pool: 0,
-  contract_id: "0x4fd1531ea602bd513c5b87df3d8332",
+  contract_id: "0xc05fa91f939040d1751dc990cb2dde",
 };
 
 export async function GET() {

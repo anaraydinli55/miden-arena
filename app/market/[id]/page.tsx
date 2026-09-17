@@ -1,5 +1,4 @@
 import { PredictionPanel } from "@/components/arena/prediction-panel";
-import { DeployMarketAccount } from "@/components/arena/deploy-market-account";
 
 export default function MarketDetailPage() {
   return (
@@ -20,9 +19,6 @@ export default function MarketDetailPage() {
         </div>
 
         <div className="space-y-4">
-          {/* Müvəqqəti hesab yaratma aləti */}
-          <DeployMarketAccount />
-          {/* Əsas Prediction Paneli */}
           <PredictionPanel />
         </div>
       </div>
