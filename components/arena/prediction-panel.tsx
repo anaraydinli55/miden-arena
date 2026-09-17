@@ -3,27 +3,9 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@/components/wallet/wallet-provider";
 
-// Əvvəl popup-ı problemsiz açan dəqiq SendTransaction sinfi
-class SendTransaction {
-  public sender: string;
-  public recipient: string;
-  public faucetId: string;
-  public noteType: "public" | "private";
-  public amount: number;
-
-  constructor(
-    sender: string,
-    recipient: string,
-    faucetId: string,
-    noteType: "public" | "private",
-    amount: number
-  ) {
-    this.sender = sender;
-    this.recipient = recipient;
-    this.faucetId = faucetId;
-    this.noteType = noteType;
-    this.amount = amount;
-  }
+function getLocalBreadProvider() {
+  if (typeof window === "undefined") return null;
+  return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
 }
 
 const SKS_FAUCET_ID = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
@@ -77,11 +59,6 @@ export function PredictionPanel() {
     no: 0,
   });
 
-  const getProvider = () => {
-    if (typeof window === "undefined") return null;
-    return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
-  };
-
   const fetchLiveState = async () => {
     try {
       const res = await fetch("/api/market");
@@ -106,8 +83,9 @@ export function PredictionPanel() {
     setStatus(null);
     setTxHash(null);
 
-    const provider = getProvider();
-    if (!provider) {
+    const breadProvider = getLocalBreadProvider();
+
+    if (!breadProvider) {
       alert("Bread Wallet extension tapılmadı!");
       setStatus("❌ Bread Wallet extension tapılmadı.");
       return;
@@ -119,10 +97,17 @@ export function PredictionPanel() {
     }
 
     setLoading(true);
-    setStatus("🍞 Bread Wallet təsdiq pəncərəsi açılır... Zəhmət olmasa 'Confirm' basın.");
+    setStatus("🍞 Bread Wallet təsdiq pəncərəsi açılır...");
 
     try {
       let activeAccount = address;
+
+      if (!activeAccount && typeof breadProvider.connect === "function") {
+        try {
+          const res = await breadProvider.connect();
+          activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
+        } catch (e) {}
+      }
 
       if (!activeAccount) {
         activeAccount = await connect();
@@ -134,34 +119,44 @@ export function PredictionPanel() {
 
       const sendUnits = (Number(amount) || 10) * 1_000_000;
 
-      // Əvvəlki işləyən rəsmi SendTransaction instansiyası
-      const transaction = new SendTransaction(
-        activeAccount,
-        MARKET_CONTRACT_ID,
-        SKS_FAUCET_ID,
-        "public",
-        sendUnits
-      );
+      // Rəsmi MidenSendTransaction interface-i (@miden-sdk/miden-wallet-adapter-base)
+      const txObj = {
+        senderAddress: activeAccount,
+        recipientAddress: MARKET_CONTRACT_ID,
+        faucetId: SKS_FAUCET_ID,
+        noteType: "public" as const,
+        amount: sendUnits,
+      };
 
-      console.log("Submitting verified SendTransaction instance to Bread Wallet:", transaction);
+      console.log("Submitting official standard payload:", txObj);
 
       let txResponse: any = null;
 
-      // Birbaşa cüzdan metodları ilə popup-ı qaldırırıq
-      if (typeof provider.requestSend === "function") {
-        txResponse = await provider.requestSend(transaction);
-      } else if (typeof provider.requestSendTransaction === "function") {
-        txResponse = await provider.requestSendTransaction(transaction);
-      } else if (typeof provider.sendTransaction === "function") {
-        txResponse = await provider.sendTransaction(transaction);
-      } else if (typeof provider.request === "function") {
-        txResponse = await provider.request({
+      if (typeof breadProvider.requestSend === "function") {
+        try {
+          txResponse = await breadProvider.requestSend(txObj);
+        } catch (e: any) {
+          if (e?.message?.includes("INVALID_PARAMS") && typeof breadProvider.request === "function") {
+            txResponse = await breadProvider.request({
+              method: "miden_sendTransaction",
+              params: [txObj],
+            });
+          } else {
+            throw e;
+          }
+        }
+      } else if (typeof breadProvider.requestSendTransaction === "function") {
+        txResponse = await breadProvider.requestSendTransaction(txObj);
+      } else if (typeof breadProvider.sendTransaction === "function") {
+        txResponse = await breadProvider.sendTransaction(txObj);
+      } else if (typeof breadProvider.request === "function") {
+        txResponse = await breadProvider.request({
           method: "miden_sendTransaction",
-          params: [transaction],
+          params: [txObj],
         });
       }
 
-      console.log("Bread Wallet response received:", txResponse);
+      console.log("Bread Wallet confirmation response:", txResponse);
 
       let realTxId = extractTxHash(txResponse);
 
