@@ -3,26 +3,6 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@/components/wallet/wallet-provider";
 
-class SendTransaction {
-  public sender: string;
-  public accountId: string;
-  public recipient: string;
-  public targetAccountId: string;
-  public faucetId: string;
-  public noteType: string;
-  public amount: number;
-
-  constructor(sender: string, recipient: string, faucetId: string, noteType: string, amount: number) {
-    this.sender = sender;
-    this.accountId = sender;
-    this.recipient = recipient;
-    this.targetAccountId = recipient;
-    this.faucetId = faucetId;
-    this.noteType = noteType;
-    this.amount = amount;
-  }
-}
-
 const SKS_FAUCET_ID = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
 const MARKET_CONTRACT_ID = "0x4fd1531ea602bd513c5b87df3d8332";
 
@@ -56,9 +36,7 @@ export function PredictionPanel() {
           no: data.no_pool,
         });
       }
-    } catch (e) {
-      // 404 olarsa lokal state saxlanılır
-    }
+    } catch (e) {}
   };
 
   useEffect(() => {
@@ -89,14 +67,14 @@ export function PredictionPanel() {
     try {
       let activeAccount = address;
 
-      if (!activeAccount && typeof provider.requestConnection === "function") {
-        const conn = await provider.requestConnection().catch(() => null);
-        activeAccount = conn?.address || conn?.publicKey || (conn?.accounts && conn.accounts[0]) || null;
-      }
-
       if (!activeAccount && typeof provider.request === "function") {
         const accs = await provider.request({ method: "miden_accounts" }).catch(() => null);
         if (accs && accs.length > 0) activeAccount = accs[0]?.address || accs[0];
+      }
+
+      if (!activeAccount && typeof provider.requestConnection === "function") {
+        const conn = await provider.requestConnection().catch(() => null);
+        activeAccount = conn?.address || conn?.publicKey || (conn?.accounts && conn.accounts[0]) || null;
       }
 
       if (!activeAccount) {
@@ -104,37 +82,50 @@ export function PredictionPanel() {
       }
 
       if (!activeAccount) {
-        throw new Error("Cüzdanın aktiv hesabı oxuna bilmədi.");
+        throw new Error("Cüzdanın aktiv hesabı oxuna bilmədi. Zəhmət olmasa sol menyudan cüzdanı qoşun.");
       }
 
       const sendAmount = (Number(amount) || 10) * 1_000_000;
 
-      const transaction = new SendTransaction(
-        activeAccount,
-        MARKET_CONTRACT_ID,
-        SKS_FAUCET_ID,
-        "public",
-        sendAmount
-      );
+      // Standart Miden Transaction Parametrləri
+      const txParams = {
+        sender: activeAccount,
+        accountId: activeAccount,
+        recipient: MARKET_CONTRACT_ID,
+        targetAccountId: MARKET_CONTRACT_ID,
+        faucetId: SKS_FAUCET_ID,
+        noteType: "public",
+        amount: sendAmount,
+      };
 
-      console.log("Submitting transaction to wallet:", transaction);
+      console.log("Submitting RPC transaction payload to wallet:", txParams);
 
       let txResponse: any = null;
 
-      if (typeof provider.requestSend === "function") {
-        txResponse = await provider.requestSend(transaction);
-      } else if (typeof provider.requestSendTransaction === "function") {
-        txResponse = await provider.requestSendTransaction(transaction);
+      // Intercom-u qırmayacaq standart EIP-1193 RPC çağırışı
+      if (typeof provider.request === "function") {
+        try {
+          txResponse = await provider.request({
+            method: "miden_sendTransaction",
+            params: [txParams],
+          });
+        } catch (e: any) {
+          if (e?.message?.includes("Not Found")) {
+            txResponse = await provider.request({
+              method: "miden_send",
+              params: [txParams],
+            });
+          } else {
+            throw e;
+          }
+        }
       } else if (typeof provider.sendTransaction === "function") {
-        txResponse = await provider.sendTransaction(transaction);
-      } else if (typeof provider.request === "function") {
-        txResponse = await provider.request({
-          method: "miden_sendTransaction",
-          params: [transaction],
-        });
+        txResponse = await provider.sendTransaction(txParams);
+      } else if (typeof provider.requestSend === "function") {
+        txResponse = await provider.requestSend(txParams);
       }
 
-      console.log("Wallet confirmation response:", txResponse);
+      console.log("Wallet response received:", txResponse);
 
       let realTxId: string | null = null;
       if (typeof txResponse === "string" && txResponse.startsWith("0x")) {
@@ -147,7 +138,7 @@ export function PredictionPanel() {
         throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx ID qaytarmadı.");
       }
 
-      // API üzərindən canlı hovuz xalını yeniləyirik
+      // API yeniləməsi
       try {
         const res = await fetch("/api/submit", {
           method: "POST",
@@ -168,7 +159,6 @@ export function PredictionPanel() {
           });
         }
       } catch (e) {
-        // Lokal artım
         setLivePool((prev) => ({
           total: prev.total + (Number(amount) || 10),
           yes: choice === "YES" ? prev.yes + (Number(amount) || 10) : prev.yes,
@@ -179,7 +169,7 @@ export function PredictionPanel() {
       setTxHash(realTxId);
       setStatus(`✅ On-Chain Tranzaksiya Uğurla Təsdiqləndi! (${choice}: ${amount} SKS)`);
     } catch (err: any) {
-      console.error("Submission error:", err);
+      console.error("Detailed Submission Error:", err?.message || err);
       if (err?.message?.includes("User rejected") || err?.message?.includes("Cancel") || err?.code === 4001) {
         setStatus("⚠️ İstifadəçi tranzaksiyanı cüzdanda ləğv etdi.");
       } else {
