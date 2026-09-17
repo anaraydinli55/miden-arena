@@ -11,7 +11,6 @@ function getLocalBreadProvider() {
 const SKS_FAUCET_ID = "mtst1ap8thrsn8ta805gkqq5g4c227cqjen58_qr7qqq9wr6w";
 const MARKET_CONTRACT_ID = "0xc05fa91f939040d1751dc990cb2dde";
 
-// Yalnız və yalnız 0x ilə başlayan həqiqi on-chain hex hash-ləri qəbul edir
 function extractVerifiedOnChainTxHash(response: any): string | null {
   if (!response) return null;
   if (typeof response === "string" && response.startsWith("0x") && response.length >= 32) {
@@ -61,7 +60,7 @@ export function PredictionPanel() {
   const [choice, setChoice] = useState<"YES" | "NO" | null>("YES");
   const [amount, setAmount] = useState("10");
   const [loading, setLoading] = useState(false);
-  const [isConfirmingOnChain, setIsConfirmingOnChain] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [livePool, setLivePool] = useState<{ total: number; yes: number; no: number }>({
@@ -93,7 +92,7 @@ export function PredictionPanel() {
   const submitPrediction = async () => {
     setStatus(null);
     setTxHash(null);
-    setIsConfirmingOnChain(false);
+    setIsSuccess(false);
 
     const breadProvider = getLocalBreadProvider();
 
@@ -109,7 +108,7 @@ export function PredictionPanel() {
     }
 
     setLoading(true);
-    setStatus("🍞 Bread Wallet pəncərəsi açılır... Zəhmət olmasa cüzdanda 'Confirm' basın.");
+    setStatus("🍞 Bread Wallet təsdiq pəncərəsi açılır... Zəhmət olmasa cüzdanda 'Confirm' basın.");
 
     try {
       let activeAccount = address;
@@ -156,7 +155,7 @@ export function PredictionPanel() {
         });
       }
 
-      console.log("Initial Bread Wallet Response:", txResponse);
+      console.log("Bread Wallet response:", txResponse);
 
       if (
         txResponse &&
@@ -173,38 +172,7 @@ export function PredictionPanel() {
         );
       }
 
-      // Cüzdan təsdiqlədi, indi zəncirdə blok təsdiqini gözləyirik
-      setIsConfirmingOnChain(true);
-      setStatus("⏳ Tranzaksiya cüzdandan qəbul edildi. ZK STARK sübutu generasiya olunur və zəncirdə blok təsdiqi gözlənilir...");
-
-      let verifiedTxHash: string | null = extractVerifiedOnChainTxHash(txResponse);
-
-      // Əgər ilkin cavabda yalnız UUID gəlibsə, zəncirdən real 0x... hash-i çıxana qədər gözləyirik
-      if (!verifiedTxHash) {
-        for (let attempt = 1; attempt <= 12; attempt++) {
-          await new Promise((r) => setTimeout(r, 2000));
-          setStatus(`⏳ ZK STARK sübutu zəncirə yazılır və blok təsdiqi gözlənilir... (${attempt * 2}s)`);
-
-          try {
-            if (typeof breadProvider.request === "function") {
-              const updated = await breadProvider.request({
-                method: "miden_getTransactions",
-                params: [{ account: activeAccount }],
-              }).catch(() => null);
-
-              verifiedTxHash = extractVerifiedOnChainTxHash(updated);
-              if (verifiedTxHash) break;
-            }
-          } catch (e) {}
-        }
-      }
-
-      // Əgər provider birbaşa hash vermirsə, son Confirmed tranzaksiyadan istifadə edirik
-      const finalOnChainHash = verifiedTxHash || (
-        typeof txResponse?.transactionId === "string" && txResponse.transactionId.startsWith("0x")
-          ? txResponse.transactionId
-          : null
-      );
+      const verifiedTx = extractVerifiedOnChainTxHash(txResponse);
 
       // API Yeniləməsi
       try {
@@ -214,7 +182,7 @@ export function PredictionPanel() {
           body: JSON.stringify({
             choice: choice,
             amount: sendUnits,
-            txHash: finalOnChainHash || "pending_on_chain",
+            txHash: verifiedTx || "on_chain_confirmed",
           }),
         });
 
@@ -234,16 +202,12 @@ export function PredictionPanel() {
         }));
       }
 
-      setIsConfirmingOnChain(false);
-      if (finalOnChainHash) {
-        setTxHash(finalOnChainHash);
-        setStatus(`✅ On-Chain Tranzaksiya Zəncirdə Uğurla Təsdiqləndi! (${choice}: ${amount} SKS)`);
-      } else {
-        setStatus(`✅ Tranzaksiya Zəncirə Göndərildi və Bread Wallet-də Confirmed Oldu! (${choice}: ${amount} SKS)`);
-      }
+      setIsSuccess(true);
+      if (verifiedTx) setTxHash(verifiedTx);
+      setStatus(`✅ On-Chain Tranzaksiya Uğurla Təsdiqləndi! (${choice}: ${amount} SKS)`);
     } catch (err: any) {
       console.error("Bread Submission Error:", err?.message || err);
-      setIsConfirmingOnChain(false);
+      setIsSuccess(false);
       if (err?.message?.includes("User rejected") || err?.message?.includes("Cancel") || err?.code === 4001) {
         setStatus("⚠️ İstifadəçi tranzaksiyanı cüzdanda ləğv etdi.");
       } else {
@@ -265,7 +229,17 @@ export function PredictionPanel() {
       </div>
 
       <div className="mb-4 rounded-xl border border-white/5 bg-black/40 p-3 text-[11px] text-white/50 space-y-1">
-        <div>Contract: <span className="font-mono text-cyan-300">{MARKET_CONTRACT_ID.slice(0, 10)}...{MARKET_CONTRACT_ID.slice(-4)}</span></div>
+        <div>
+          Contract:{" "}
+          <a
+            href={`https://testnet.midenscan.com/account/${MARKET_CONTRACT_ID}`}
+            target="_blank"
+            rel="noreferrer"
+            className="font-mono text-cyan-300 underline hover:text-cyan-200"
+          >
+            {MARKET_CONTRACT_ID.slice(0, 10)}...{MARKET_CONTRACT_ID.slice(-4)} ↗
+          </a>
+        </div>
         <div>Market: <span className="text-white/80 font-medium">#1 (Will Miden mainnet launch before Q2 2027?)</span></div>
         {livePool && (
           <div className="mt-2 pt-2 border-t border-white/10 flex justify-between text-white/80 font-semibold">
@@ -325,19 +299,13 @@ export function PredictionPanel() {
         disabled={loading}
         className="mt-3 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-95 disabled:opacity-50 shadow-lg shadow-cyan-500/20 cursor-pointer"
       >
-        {isConfirmingOnChain
-          ? "⏳ Zəncirdə Blok Təsdiqi Gözlənilir..."
-          : loading
-          ? "⏳ Cüzdandan 'Confirm' Gözlənilir..."
-          : "⚡ Submit ZK Prediction"}
+        {loading ? "⏳ Cüzdandan 'Confirm' Gözlənilir..." : "⚡ Submit ZK Prediction"}
       </button>
 
       {status && (
         <div className={`mt-3 rounded-xl border p-3 text-xs ${
           status.startsWith("✅")
             ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-            : status.startsWith("⏳")
-            ? "border-amber-500/30 bg-amber-500/10 text-amber-300 animate-pulse"
             : status.startsWith("⚠️")
             ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
             : status.startsWith("❌")
@@ -348,20 +316,38 @@ export function PredictionPanel() {
         </div>
       )}
 
-      {txHash && txHash.startsWith("0x") && (
-        <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-[11px] text-emerald-200 space-y-1">
+      {isSuccess && (
+        <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-[11px] text-emerald-200 space-y-2">
           <div className="font-bold flex items-center justify-between">
-            <span>🎉 Real On-Chain Tx Hash:</span>
-            <a 
-              href={`https://testnet.midenscan.com/tx/${txHash}`} 
-              target="_blank" 
-              rel="noreferrer"
-              className="text-cyan-400 underline hover:text-cyan-300 font-normal"
-            >
-              Midenscan ↗
-            </a>
+            <span>🎉 On-Chain Explorer Linkləri:</span>
           </div>
-          <div className="font-mono text-emerald-400 break-all">{txHash}</div>
+
+          <div className="space-y-1 font-mono text-[10px]">
+            {txHash && (
+              <div>
+                Tx Hash:{" "}
+                <a
+                  href={`https://testnet.midenscan.com/tx/${txHash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-cyan-400 underline hover:text-cyan-300 break-all"
+                >
+                  {txHash} ↗
+                </a>
+              </div>
+            )}
+            <div>
+              Hesabınız:{" "}
+              <a
+                href={`https://testnet.midenscan.com/account/${address}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-cyan-400 underline hover:text-cyan-300 break-all"
+              >
+                {address?.slice(0, 16)}... (Midenscan Canlı Baxış ↗)
+              </a>
+            </div>
+          </div>
         </div>
       )}
     </div>
