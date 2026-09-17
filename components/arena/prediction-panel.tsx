@@ -102,6 +102,13 @@ export function PredictionPanel() {
     try {
       let activeAccount = address;
 
+      if (!activeAccount && typeof breadProvider.connect === "function") {
+        try {
+          const res = await breadProvider.connect();
+          activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
+        } catch (e) {}
+      }
+
       if (!activeAccount) {
         activeAccount = await connect();
       }
@@ -112,33 +119,42 @@ export function PredictionPanel() {
 
       const sendUnits = (Number(amount) || 10) * 1_000_000;
 
-      // Bread Wallet-in INVALID_PARAMS atmaması üçün dəqiq parametrlər
-      const transactionPayload = {
+      // Rəsmi Bread Wallet SendTransaction obyekt strukturu
+      const txObj = {
         accountId: activeAccount,
-        sender: activeAccount,
-        from: activeAccount,
         recipient: MARKET_CONTRACT_ID,
-        targetAccountId: MARKET_CONTRACT_ID,
-        to: MARKET_CONTRACT_ID,
         faucetId: SKS_FAUCET_ID,
         noteType: "public",
         amount: sendUnits,
       };
 
-      console.log("Submitting transaction payload to Bread Wallet:", transactionPayload);
+      console.log("Submitting official standard payload:", txObj);
 
       let txResponse: any = null;
 
+      // 1. Standart requestSend
       if (typeof breadProvider.requestSend === "function") {
-        txResponse = await breadProvider.requestSend(transactionPayload);
+        try {
+          txResponse = await breadProvider.requestSend(txObj);
+        } catch (e: any) {
+          // Əgər parametr formatı kimi SendTransaction instansiyası gözləyirsə
+          if (e?.message?.includes("INVALID_PARAMS") && typeof breadProvider.request === "function") {
+            txResponse = await breadProvider.request({
+              method: "miden_sendTransaction",
+              params: [txObj],
+            });
+          } else {
+            throw e;
+          }
+        }
       } else if (typeof breadProvider.requestSendTransaction === "function") {
-        txResponse = await breadProvider.requestSendTransaction(transactionPayload);
+        txResponse = await breadProvider.requestSendTransaction(txObj);
       } else if (typeof breadProvider.sendTransaction === "function") {
-        txResponse = await breadProvider.sendTransaction(transactionPayload);
+        txResponse = await breadProvider.sendTransaction(txObj);
       } else if (typeof breadProvider.request === "function") {
         txResponse = await breadProvider.request({
           method: "miden_sendTransaction",
-          params: [transactionPayload],
+          params: [txObj],
         });
       }
 
