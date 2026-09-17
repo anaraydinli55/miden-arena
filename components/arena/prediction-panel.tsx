@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useWallet, getBreadProvider } from "@/components/wallet/wallet-provider";
+import { useWallet } from "@/components/wallet/wallet-provider";
+
+// Birbaşa fayl daxili Bread Wallet provayderi
+function getLocalBreadProvider() {
+  if (typeof window === "undefined") return null;
+  return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
+}
 
 class SendTransaction {
   public readonly sender: string;
@@ -67,7 +73,7 @@ function extractTxHash(response: any): string | null {
 }
 
 export function PredictionPanel() {
-  const { connected, address, provider, connect } = useWallet();
+  const { connected, address, connect } = useWallet();
 
   const [choice, setChoice] = useState<"YES" | "NO" | null>("YES");
   const [amount, setAmount] = useState("10");
@@ -104,7 +110,7 @@ export function PredictionPanel() {
     setStatus(null);
     setTxHash(null);
 
-    const breadProvider = provider || getBreadProvider();
+    const breadProvider = getLocalBreadProvider();
 
     if (!breadProvider) {
       alert("Bread Wallet extension tapılmadı!");
