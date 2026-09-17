@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useWallet } from "@/components/wallet/wallet-provider";
+import { useWallet, getMidenProvider } from "@/components/wallet/wallet-provider";
 
 class SendTransaction {
   public readonly sender: string;
@@ -32,7 +32,6 @@ class SendTransaction {
 const SKS_FAUCET_ID = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
 const MARKET_CONTRACT_ID = "0x4fd1531ea602bd513c5b87df3d8332";
 
-// Cüzdandan qayıdan obyektdən Tx Hash-i dəqiq çıxaran köməkçi funksiya
 function extractTxHash(response: any): string | null {
   if (!response) return null;
   if (typeof response === "string" && response.startsWith("0x")) return response;
@@ -57,7 +56,6 @@ function extractTxHash(response: any): string | null {
       return typeof n === "string" ? n : n.id || n.hash || null;
     }
 
-    // JSON içindən 0x ilə başlayan istənilən hex string axtarışı
     try {
       const str = JSON.stringify(response);
       const match = str.match(/0x[a-fA-F0-9]{10,64}/);
@@ -69,7 +67,7 @@ function extractTxHash(response: any): string | null {
 }
 
 export function PredictionPanel() {
-  const { connected, address, connect } = useWallet();
+  const { connected, address, provider, connect } = useWallet();
 
   const [choice, setChoice] = useState<"YES" | "NO" | null>("YES");
   const [amount, setAmount] = useState("10");
@@ -81,11 +79,6 @@ export function PredictionPanel() {
     yes: 20,
     no: 0,
   });
-
-  const getProvider = () => {
-    if (typeof window === "undefined") return null;
-    return (window as any).midenWallet || (window as any).miden || (window as any).bread || null;
-  };
 
   const fetchLiveState = async () => {
     try {
@@ -111,9 +104,11 @@ export function PredictionPanel() {
     setStatus(null);
     setTxHash(null);
 
-    const provider = getProvider();
-    if (!provider) {
-      alert("Miden / Bread Wallet extension tapılmadı!");
+    // Eyni vahid provider-dən istifadə edirik
+    const activeProvider = provider || getMidenProvider();
+
+    if (!activeProvider) {
+      alert("Bread / Miden Wallet extension tapılmadı!");
       setStatus("❌ Wallet extension tapılmadı.");
       return;
     }
@@ -124,24 +119,10 @@ export function PredictionPanel() {
     }
 
     setLoading(true);
-    setStatus("🍞 Miden Wallet təsdiq pəncərəsi açılır...");
+    setStatus("🍞 Bread Wallet təsdiq pəncərəsi açılır...");
 
     try {
-      let activeAccount = address || provider.address;
-
-      if (!activeAccount && typeof provider.connect === "function") {
-        try {
-          const res = await provider.connect();
-          activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
-        } catch (e) {}
-      }
-
-      if (!activeAccount && typeof provider.requestConnection === "function") {
-        try {
-          const res = await provider.requestConnection();
-          activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
-        } catch (e) {}
-      }
+      let activeAccount = address;
 
       if (!activeAccount) {
         activeAccount = await connect();
@@ -161,29 +142,27 @@ export function PredictionPanel() {
         sendUnits
       );
 
-      console.log("Submitting SendTransaction:", transaction);
+      console.log("Submitting transaction using connected wallet provider:", transaction);
 
       let txResponse: any = null;
 
-      if (typeof provider.requestSend === "function") {
-        txResponse = await provider.requestSend(transaction);
-      } else if (typeof provider.requestSendTransaction === "function") {
-        txResponse = await provider.requestSendTransaction(transaction);
-      } else if (typeof provider.sendTransaction === "function") {
-        txResponse = await provider.sendTransaction(transaction);
-      } else if (typeof provider.request === "function") {
-        txResponse = await provider.request({
+      if (typeof activeProvider.requestSend === "function") {
+        txResponse = await activeProvider.requestSend(transaction);
+      } else if (typeof activeProvider.requestSendTransaction === "function") {
+        txResponse = await activeProvider.requestSendTransaction(transaction);
+      } else if (typeof activeProvider.sendTransaction === "function") {
+        txResponse = await activeProvider.sendTransaction(transaction);
+      } else if (typeof activeProvider.request === "function") {
+        txResponse = await activeProvider.request({
           method: "miden_sendTransaction",
           params: [transaction],
         });
       }
 
-      console.log("Raw Wallet Response Object:", txResponse);
+      console.log("Wallet confirmation response:", txResponse);
 
-      // Çoxşaxəli Tx Hash çıxarışı
       let realTxId = extractTxHash(txResponse);
 
-      // Əgər extension sadəcə təsdiq obyekti qaytarıbsa ({ success: true } və s.)
       if (!realTxId && txResponse && typeof txResponse === "object") {
         realTxId = "0x" + Array.from(crypto.getRandomValues(new Uint8Array(32)))
           .map((b) => b.toString(16).padStart(2, "0"))
@@ -194,7 +173,6 @@ export function PredictionPanel() {
         throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi.");
       }
 
-      // API State Yeniləməsi
       try {
         const res = await fetch("/api/submit", {
           method: "POST",
