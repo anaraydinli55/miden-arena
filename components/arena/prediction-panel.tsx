@@ -51,7 +51,7 @@ export function PredictionPanel() {
 
     const provider = getProvider();
     if (!provider) {
-      alert("Bread Wallet extension tapılmadı!");
+      alert("Bread Wallet extension tapılmadı! Chrome toolbar-dan extension-ı yoxlayın.");
       setStatus("❌ Bread Wallet extension tapılmadı.");
       return;
     }
@@ -65,18 +65,19 @@ export function PredictionPanel() {
     setStatus("🍞 Bread Wallet bağlantısı yoxlanılır...");
 
     try {
-      // 1. Aktiv hesabı alırıq və sessiyanı təzələyirik (NOT_GRANTED olmaması üçün)
+      // 1. Məcburi icazə sorğusu (Handshake)
       let activeAccount: string | null = null;
 
-      try {
-        if (typeof provider.connect === "function") {
-          const res = await provider.connect();
-          activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
-        } else if (typeof provider.requestConnection === "function") {
-          const res = await provider.requestConnection();
-          activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
-        }
-      } catch (e) {}
+      if (typeof provider.requestConnection === "function") {
+        const res = await provider.requestConnection();
+        activeAccount = res?.address || res?.publicKey || (res?.accounts && res.accounts[0]) || null;
+      } else if (typeof provider.connect === "function") {
+        const res = await provider.connect();
+        activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
+      } else if (typeof provider.request === "function") {
+        const res = await provider.request({ method: "miden_requestConnection" }).catch(() => null);
+        activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
+      }
 
       if (!activeAccount) {
         activeAccount = address || provider.address;
@@ -87,27 +88,30 @@ export function PredictionPanel() {
       }
 
       if (!activeAccount) {
-        throw new Error("Cüzdan bağlantısı tapılmadı.");
+        throw new Error("Cüzdan qoşulmadı. Zəhmət olmasa Chrome toolbar-dan Bread Wallet ikonuna basaraq icazə verin.");
       }
 
       setStatus("🍞 Tranzaksiya pəncərəsi açılır... Zəhmət olmasa 'Confirm' basın.");
 
       const sendAmount = (Number(amount) || 10) * 1_000_000;
 
-      // Miden Extension-ın dəqiq qəbul etdiyi parametr formatı
+      // Miden Extension-ın rəsmi parametrləri
       const txPayload = {
+        from: activeAccount,
         sender: activeAccount,
+        accountId: activeAccount,
+        to: MARKET_CONTRACT_ID,
         recipient: MARKET_CONTRACT_ID,
+        targetAccountId: MARKET_CONTRACT_ID,
         faucetId: SKS_FAUCET_ID,
         noteType: "public",
         amount: sendAmount,
       };
 
-      console.log("Submitting cleaned transaction payload:", txPayload);
+      console.log("Submitting RPC transaction payload to wallet:", txPayload);
 
       let txResponse: any = null;
 
-      // Extension ilə birbaşa metod çağırışları
       if (typeof provider.requestSend === "function") {
         txResponse = await provider.requestSend(txPayload);
       } else if (typeof provider.requestSendTransaction === "function") {
@@ -134,7 +138,7 @@ export function PredictionPanel() {
         throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx ID qaytarmadı.");
       }
 
-      // API State yeniləməsi
+      // API yeniləməsi
       try {
         const res = await fetch("/api/submit", {
           method: "POST",
