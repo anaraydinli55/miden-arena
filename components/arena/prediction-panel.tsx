@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@/components/wallet/wallet-provider";
 
-// Rəsmi Miden SendTransaction sinfi (xətalı npm paketindən asılılığı aradan qaldırır)
 class SendTransaction {
   public sender: string;
   public accountId: string;
@@ -24,9 +23,8 @@ class SendTransaction {
   }
 }
 
-// Rəsmi Testnet tərəfindən tanınan Faucet və Market identifikatorları
+// Rəsmi Testnet Identifikatorları
 const SKS_FAUCET_ID = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
-const TARGET_MARKET_RECIPIENT = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
 const MARKET_CONTRACT_ID = "0x4fd1531ea602bd513c5b87df3d8332";
 
 export function PredictionPanel() {
@@ -81,7 +79,7 @@ export function PredictionPanel() {
     }
 
     setLoading(true);
-    setStatus("🍞 Bread Wallet təsdiq pəncərəsi açılır...");
+    setStatus("🍞 Bread Wallet pəncərəsi açılır... Zəhmət olmasa 'Confirm' basın.");
 
     try {
       let activeAccount = address;
@@ -104,35 +102,42 @@ export function PredictionPanel() {
         throw new Error("Cüzdanın aktiv hesabı oxuna bilmədi.");
       }
 
+      console.log("🚀 [1/3] Preparing transaction with Sender:", activeAccount);
+
       const sendAmount = (Number(amount) || 10) * 1_000_000;
 
-      // Yerli təmiz SendTransaction instansiyası
+      // Transfer hədəfi: Kontrakt ünvanı
       const transaction = new SendTransaction(
         activeAccount,
-        TARGET_MARKET_RECIPIENT,
+        MARKET_CONTRACT_ID,
         SKS_FAUCET_ID,
         "public",
         sendAmount
       );
 
-      console.log("Submitting native SendTransaction:", transaction);
+      console.log("⚡ [2/3] Calling Bread Wallet requestSend:", transaction);
 
       let txResponse: any = null;
 
-      if (typeof provider.requestSend === "function") {
-        txResponse = await provider.requestSend(transaction);
-      } else if (typeof provider.requestSendTransaction === "function") {
-        txResponse = await provider.requestSendTransaction(transaction);
-      } else if (typeof provider.sendTransaction === "function") {
-        txResponse = await provider.sendTransaction(transaction);
-      } else if (typeof provider.request === "function") {
-        txResponse = await provider.request({
-          method: "miden_sendTransaction",
-          params: [transaction],
-        });
+      try {
+        if (typeof provider.requestSend === "function") {
+          txResponse = await provider.requestSend(transaction);
+        } else if (typeof provider.requestSendTransaction === "function") {
+          txResponse = await provider.requestSendTransaction(transaction);
+        } else if (typeof provider.sendTransaction === "function") {
+          txResponse = await provider.sendTransaction(transaction);
+        } else if (typeof provider.request === "function") {
+          txResponse = await provider.request({
+            method: "miden_sendTransaction",
+            params: [transaction],
+          });
+        }
+      } catch (sendErr: any) {
+        console.error("🔴 Wallet requestSend error details:", sendErr);
+        throw new Error(sendErr?.message || "Cüzdan tranzaksiyanı icra edə bilmədi.");
       }
 
-      console.log("Wallet response:", txResponse);
+      console.log("✅ [3/3] Wallet raw response received:", txResponse);
 
       let realTxId: string | null = null;
       if (typeof txResponse === "string" && txResponse.startsWith("0x")) {
@@ -145,7 +150,7 @@ export function PredictionPanel() {
         throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx ID qaytarmadı.");
       }
 
-      // API state-i yeniləyirik
+      // API üzərindən canlı hovuz xalını yeniləyirik
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -166,9 +171,9 @@ export function PredictionPanel() {
       }
 
       setTxHash(realTxId);
-      setStatus(`✅ On-Chain Tranzaksiya Uğurla Təsdiqləndi! (${choice}: ${amount} SKS)`);
+      setStatus(`✅ On-Chain Tranzaksiya Uğurla Göndərildi! (${choice}: ${amount} SKS)`);
     } catch (err: any) {
-      console.error("Submission error:", err);
+      console.error("❌ Final submission error:", err);
       if (err?.message?.includes("User rejected") || err?.message?.includes("Cancel") || err?.code === 4001) {
         setStatus("⚠️ İstifadəçi tranzaksiyanı cüzdanda ləğv etdi.");
       } else {
