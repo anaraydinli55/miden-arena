@@ -3,25 +3,27 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@/components/wallet/wallet-provider";
 
-// Rəsmi Miden SendTransaction Sinfi
+// Serializasiya olunan təmiz Miden SendTransaction sinfi
 class SendTransaction {
   public readonly sender: string;
   public readonly accountId: string;
   public readonly recipient: string;
+  public readonly targetAccountId: string;
   public readonly faucetId: string;
-  public readonly noteType: "public" | "private";
-  public readonly amount: bigint;
+  public readonly noteType: string;
+  public readonly amount: number;
 
   constructor(
     sender: string,
     recipient: string,
     faucetId: string,
-    noteType: "public" | "private",
-    amount: bigint
+    noteType: string,
+    amount: number
   ) {
     this.sender = sender;
     this.accountId = sender;
     this.recipient = recipient;
+    this.targetAccountId = recipient;
     this.faucetId = faucetId;
     this.noteType = noteType;
     this.amount = amount;
@@ -90,7 +92,6 @@ export function PredictionPanel() {
     setStatus("🍞 Miden Wallet təsdiq pəncərəsi açılır...");
 
     try {
-      // 1. Aktiv hesab və icazə
       let activeAccount = address || provider.address;
 
       if (!activeAccount && typeof provider.connect === "function") {
@@ -115,10 +116,9 @@ export function PredictionPanel() {
         throw new Error("Cüzdan bağlantısı təsdiqlənmədi.");
       }
 
-      // SKS 6 decimals - BigInt formatı
-      const sendUnits = BigInt((Number(amount) || 10) * 1_000_000);
+      // SKS 6 decimals - Standart serializable number (BigInt yoxdur)
+      const sendUnits = (Number(amount) || 10) * 1_000_000;
 
-      // 2. Rəsmi SendTransaction instansiyası
       const transaction = new SendTransaction(
         activeAccount,
         MARKET_CONTRACT_ID,
@@ -127,11 +127,10 @@ export function PredictionPanel() {
         sendUnits
       );
 
-      console.log("Submitting official SendTransaction instance:", transaction);
+      console.log("Submitting serializable SendTransaction instance:", transaction);
 
       let txResponse: any = null;
 
-      // 3. Rəsmi requestSend metodu ilə icra
       if (typeof provider.requestSend === "function") {
         txResponse = await provider.requestSend(transaction);
       } else if (typeof provider.requestSendTransaction === "function") {
@@ -158,7 +157,7 @@ export function PredictionPanel() {
         throw new Error("Cüzdan tranzaksiyanı təsdiqləmədi və ya Tx ID qaytarmadı.");
       }
 
-      // 4. API State Yeniləməsi
+      // API Yeniləməsi
       try {
         const res = await fetch("/api/submit", {
           method: "POST",
