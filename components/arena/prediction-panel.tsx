@@ -8,7 +8,7 @@ function getLocalBreadProvider() {
   return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
 }
 
-// Canlı Miden 0.16 Testnet-də rəsmi On-Chain Hesab ID-si
+const SKS_FAUCET_ID = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
 const MARKET_CONTRACT_ID = "0xc05fa91f939040d1751dc990cb2dde";
 
 function extractTxHash(response: any): string | null {
@@ -21,7 +21,6 @@ function extractTxHash(response: any): string | null {
     if (response.txId) return String(response.txId);
     if (response.hash) return String(response.hash);
     if (response.id && String(response.id).startsWith("0x")) return String(response.id);
-    if (response.noteId) return String(response.noteId);
     if (response.result) return extractTxHash(response.result);
     if (response.data) return extractTxHash(response.data);
     if (response.transaction) return extractTxHash(response.transaction);
@@ -49,7 +48,7 @@ export function PredictionPanel() {
   const { connected, address, connect } = useWallet();
 
   const [choice, setChoice] = useState<"YES" | "NO" | null>("YES");
-  const [amount, setAmount] = useState("1");
+  const [amount, setAmount] = useState("10");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
@@ -117,17 +116,17 @@ export function PredictionPanel() {
         throw new Error("Bread Wallet bağlantısı təsdiqlənmədi.");
       }
 
-      const sendUnits = Number(amount) || 1;
+      const sendUnits = Number(amount) || 10;
 
-      // Native Asset Transfer (Unknown Faucet xətasının qarşısını alır)
-      const txObj: any = {
+      const txObj = {
         senderAddress: activeAccount,
         recipientAddress: MARKET_CONTRACT_ID,
+        faucetId: SKS_FAUCET_ID,
         noteType: "public" as const,
         amount: sendUnits,
       };
 
-      console.log("Submitting native asset transaction payload:", txObj);
+      console.log("Submitting official standard payload to real onchain account:", txObj);
 
       let txResponse: any = null;
 
@@ -165,7 +164,9 @@ export function PredictionPanel() {
 
       if (!realTxId) {
         throw new Error(
-          "Bread Wallet cavabında təsdiqlənmiş tranzaksiya ID-si tapılmadı."
+          "Bread Wallet cavabında təsdiqlənmiş tranzaksiya ID-si yox idi — " +
+            "əməliyyat extension tərəfindən rədd edilmiş ola bilər. Bread Wallet-in " +
+            "Activity panelini yoxlayın."
         );
       }
 
@@ -197,7 +198,7 @@ export function PredictionPanel() {
       }
 
       setTxHash(realTxId);
-      setStatus(`✅ On-Chain Tranzaksiya Uğurla Təsdiqləndi! (${choice}: ${amount} MIDEN)`);
+      setStatus(`✅ On-Chain Tranzaksiya Uğurla Təsdiqləndi! (${choice}: ${amount} SKS)`);
     } catch (err: any) {
       console.error("Bread Submission Error:", err?.message || err);
       if (err?.message?.includes("User rejected") || err?.message?.includes("Cancel") || err?.code === 4001) {
@@ -225,9 +226,9 @@ export function PredictionPanel() {
         <div>Market: <span className="text-white/80 font-medium">#1 (Will Miden mainnet launch before Q2 2027?)</span></div>
         {livePool && (
           <div className="mt-2 pt-2 border-t border-white/10 flex justify-between text-white/80 font-semibold">
-            <span className="text-emerald-400">🟢 YES: {livePool.yes} MIDEN</span>
-            <span className="text-rose-400">🔴 NO: {livePool.no} MIDEN</span>
-            <span className="text-cyan-300">📈 Total: {livePool.total} MIDEN</span>
+            <span className="text-emerald-400">🟢 YES: {livePool.yes} SKS</span>
+            <span className="text-rose-400">🔴 NO: {livePool.no} SKS</span>
+            <span className="text-cyan-300">📈 Total: {livePool.total} SKS</span>
           </div>
         )}
       </div>
@@ -255,7 +256,7 @@ export function PredictionPanel() {
 
       <div className="mt-3">
         <label className="mb-2 block text-xs text-white/45">
-          Prediction Points / MIDEN Amount
+          Prediction Points / SKS Amount
         </label>
 
         <input
