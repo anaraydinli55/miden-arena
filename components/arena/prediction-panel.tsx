@@ -8,8 +8,7 @@ function getLocalBreadProvider() {
   return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
 }
 
-const SKS_FAUCET_ID = "mtst1arut8ltmq8yxzu2az9x2nsgl0qmrjh86_qr7qqq9wr6w";
-// Canlı Miden 0.16 Testnet-də yaradılmış rəsmi Real On-Chain Hesab ID-si
+// Canlı Miden 0.16 Testnet-də rəsmi On-Chain Hesab ID-si
 const MARKET_CONTRACT_ID = "0xc05fa91f939040d1751dc990cb2dde";
 
 function extractTxHash(response: any): string | null {
@@ -50,7 +49,7 @@ export function PredictionPanel() {
   const { connected, address, connect } = useWallet();
 
   const [choice, setChoice] = useState<"YES" | "NO" | null>("YES");
-  const [amount, setAmount] = useState("10");
+  const [amount, setAmount] = useState("1");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
@@ -118,18 +117,17 @@ export function PredictionPanel() {
         throw new Error("Bread Wallet bağlantısı təsdiqlənmədi.");
       }
 
-      const sendUnits = Number(amount) || 10;
+      const sendUnits = Number(amount) || 1;
 
-      // Rəsmi MidenSendTransaction parametrləri
-      const txObj = {
+      // Native Asset Transfer (Unknown Faucet xətasının qarşısını alır)
+      const txObj: any = {
         senderAddress: activeAccount,
         recipientAddress: MARKET_CONTRACT_ID,
-        faucetId: SKS_FAUCET_ID,
         noteType: "public" as const,
         amount: sendUnits,
       };
 
-      console.log("Submitting official standard payload to real onchain account:", txObj);
+      console.log("Submitting native asset transaction payload:", txObj);
 
       let txResponse: any = null;
 
@@ -163,16 +161,12 @@ export function PredictionPanel() {
         );
       }
 
-      let realTxId = extractTxHash(txResponse);
-
-      if (!realTxId && txResponse && typeof txResponse === "object") {
-        realTxId = "0x" + Array.from(crypto.getRandomValues(new Uint8Array(32)))
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join("");
-      }
+      const realTxId = extractTxHash(txResponse);
 
       if (!realTxId) {
-        throw new Error("Bread Wallet tranzaksiyanı təsdiqləmədi.");
+        throw new Error(
+          "Bread Wallet cavabında təsdiqlənmiş tranzaksiya ID-si tapılmadı."
+        );
       }
 
       try {
@@ -203,7 +197,7 @@ export function PredictionPanel() {
       }
 
       setTxHash(realTxId);
-      setStatus(`✅ On-Chain Tranzaksiya Uğurla Təsdiqləndi! (${choice}: ${amount} SKS)`);
+      setStatus(`✅ On-Chain Tranzaksiya Uğurla Təsdiqləndi! (${choice}: ${amount} MIDEN)`);
     } catch (err: any) {
       console.error("Bread Submission Error:", err?.message || err);
       if (err?.message?.includes("User rejected") || err?.message?.includes("Cancel") || err?.code === 4001) {
@@ -231,9 +225,9 @@ export function PredictionPanel() {
         <div>Market: <span className="text-white/80 font-medium">#1 (Will Miden mainnet launch before Q2 2027?)</span></div>
         {livePool && (
           <div className="mt-2 pt-2 border-t border-white/10 flex justify-between text-white/80 font-semibold">
-            <span className="text-emerald-400">🟢 YES: {livePool.yes} SKS</span>
-            <span className="text-rose-400">🔴 NO: {livePool.no} SKS</span>
-            <span className="text-cyan-300">📈 Total: {livePool.total} SKS</span>
+            <span className="text-emerald-400">🟢 YES: {livePool.yes} MIDEN</span>
+            <span className="text-rose-400">🔴 NO: {livePool.no} MIDEN</span>
+            <span className="text-cyan-300">📈 Total: {livePool.total} MIDEN</span>
           </div>
         )}
       </div>
@@ -261,7 +255,7 @@ export function PredictionPanel() {
 
       <div className="mt-3">
         <label className="mb-2 block text-xs text-white/45">
-          Prediction Points / SKS Amount
+          Prediction Points / MIDEN Amount
         </label>
 
         <input
