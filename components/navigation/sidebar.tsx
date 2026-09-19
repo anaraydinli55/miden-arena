@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import ConnectWallet from "@/components/wallet/connect-wallet";
 
+const LOGO_URL = "https://raw.githubusercontent.com/anaraydinli55/miden-arena/main/Gemini_Generated_Image_sa45oasa45oasa45.jpg";
+
 const links = [
   {
     href: "/",
@@ -46,13 +48,17 @@ const links = [
 export default function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-white/10 bg-[#08090d]">
-      <div className="flex h-20 items-center border-b border-white/10 px-6">
+      <div className="flex h-20 items-center gap-3 border-b border-white/10 px-6">
+        <img
+          src={LOGO_URL}
+          alt="Miden Arena Logo"
+          className="h-10 w-10 rounded-xl object-cover border border-cyan-400/40 shadow-md shadow-cyan-500/20"
+        />
         <div>
           <div className="text-lg font-bold tracking-wider text-white">
             MIDEN
           </div>
-
-          <div className="text-xs tracking-[0.3em] text-cyan-400">
+          <div className="text-xs font-semibold tracking-[0.3em] text-cyan-400">
             ARENA
           </div>
         </div>
@@ -80,13 +86,11 @@ export default function Sidebar() {
           <div className="mb-2 text-[10px] uppercase tracking-wider text-gray-500">
             Wallet
           </div>
-
           <ConnectWallet />
         </div>
 
         <div className="rounded-xl bg-white/5 p-3">
           <div className="text-[10px] text-gray-500">NETWORK</div>
-
           <div className="mt-1 text-xs text-cyan-400">
             Miden Testnet
           </div>
