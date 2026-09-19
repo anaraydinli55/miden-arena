@@ -8,7 +8,9 @@ function getLocalBreadProvider() {
   return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
 }
 
-const SKS_FAUCET_ID = "mtst1ap8thrsn8ta805gkqq5g4c227cqjen58_qr7qqq9wr6w";
+// YENİ ANR TOKENİ VƏ LOQOSU
+const ANR_FAUCET_ID = "0xa2f07edd81cd4d116777652f2e23dc";
+const ANR_LOGO_URL = "https://raw.githubusercontent.com/anaraydinli55/miden-arena/main/Gemini_Generated_Image_sa45oasa45oasa45.jpg";
 const MARKET_CONTRACT_ID = "0xc05fa91f939040d1751dc990cb2dde";
 
 function extractVerifiedOnChainTxHash(response: any): string | null {
@@ -128,14 +130,16 @@ export function PredictionPanel() {
         throw new Error("Bread Wallet bağlantısı təsdiqlənmədi.");
       }
 
-      const sendUnits = Number(amount) || 10;
+      const inputNum = Number(amount) || 10;
+      // 6 decimals: 10 ANR = 10,000,000 base units (Cüzdanda 0.00001 yox, tam 10.0 ANR görünəcək)
+      const sendBaseUnits = inputNum * 1_000_000;
 
       const txObj = {
         senderAddress: activeAccount,
         recipientAddress: MARKET_CONTRACT_ID,
-        faucetId: SKS_FAUCET_ID,
+        faucetId: ANR_FAUCET_ID,
         noteType: "public" as const,
-        amount: sendUnits,
+        amount: sendBaseUnits,
       };
 
       console.log("Submitting transaction payload to Bread Wallet:", txObj);
@@ -172,9 +176,9 @@ export function PredictionPanel() {
         );
       }
 
-      // Cüzdanda Confirm basıldıqdan sonra dərhal altda On-Chain kartını aktivləşdiririk
+      // Cüzdanda Confirm basıldıqdan sonra dərhal On-Chain kartını aktivləşdiririk
       setIsTxSubmitted(true);
-      setStatus(`✅ Tranzaksiya Zəncirə Göndərildi və Bread Wallet-də Confirmed Oldu! (${choice}: ${amount} SKS)`);
+      setStatus(`✅ Tranzaksiya Zəncirə Göndərildi və Bread Wallet-də Confirmed Oldu! (${choice}: ${inputNum} ANR)`);
 
       const confirmedTx = extractVerifiedOnChainTxHash(txResponse);
       if (confirmedTx) {
@@ -188,7 +192,7 @@ export function PredictionPanel() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             choice: choice,
-            amount: sendUnits,
+            amount: inputNum,
             txHash: confirmedTx || "onchain_confirmed",
           }),
         });
@@ -203,9 +207,9 @@ export function PredictionPanel() {
         }
       } catch (e) {
         setLivePool((prev) => ({
-          total: prev.total + sendUnits,
-          yes: choice === "YES" ? prev.yes + sendUnits : prev.yes,
-          no: choice === "NO" ? prev.no + sendUnits : prev.no,
+          total: prev.total + inputNum,
+          yes: choice === "YES" ? prev.yes + inputNum : prev.yes,
+          no: choice === "NO" ? prev.no + inputNum : prev.no,
         }));
       }
     } catch (err: any) {
@@ -225,7 +229,14 @@ export function PredictionPanel() {
   return (
     <div className="card rounded-2xl p-5 border border-white/10 bg-white/[0.02]">
       <div className="mb-4 flex items-center justify-between">
-        <div className="text-sm font-semibold text-white">Private Prediction</div>
+        <div className="flex items-center gap-2">
+          <img
+            src={ANR_LOGO_URL}
+            alt="ANR Token Logo"
+            className="w-5 h-5 rounded-full object-cover border border-cyan-400/40"
+          />
+          <span className="text-sm font-semibold text-white">Private Prediction</span>
+        </div>
         <span className="rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] font-medium text-cyan-400">
           Bread ZK
         </span>
@@ -243,12 +254,18 @@ export function PredictionPanel() {
             {MARKET_CONTRACT_ID.slice(0, 10)}...{MARKET_CONTRACT_ID.slice(-4)} ↗
           </a>
         </div>
+        <div>
+          Token Faucet:{" "}
+          <span className="font-mono text-amber-300">
+            {ANR_FAUCET_ID.slice(0, 10)}...{ANR_FAUCET_ID.slice(-4)} (ANR)
+          </span>
+        </div>
         <div>Market: <span className="text-white/80 font-medium">#1 (Will Miden mainnet launch before Q2 2027?)</span></div>
         {livePool && (
           <div className="mt-2 pt-2 border-t border-white/10 flex justify-between text-white/80 font-semibold">
-            <span className="text-emerald-400">🟢 YES: {livePool.yes} SKS</span>
-            <span className="text-rose-400">🔴 NO: {livePool.no} SKS</span>
-            <span className="text-cyan-300">📈 Total: {livePool.total} SKS</span>
+            <span className="text-emerald-400">🟢 YES: {livePool.yes} ANR</span>
+            <span className="text-rose-400">🔴 NO: {livePool.no} ANR</span>
+            <span className="text-cyan-300">📈 Total: {livePool.total} ANR</span>
           </div>
         )}
       </div>
@@ -276,7 +293,7 @@ export function PredictionPanel() {
 
       <div className="mt-3">
         <label className="mb-2 block text-xs text-white/45">
-          Prediction Points / SKS Amount
+          Prediction Points / ANR Amount
         </label>
 
         <input
@@ -320,7 +337,7 @@ export function PredictionPanel() {
         </div>
       )}
 
-      {/* İSTƏDİYİNİZ XÜSUSİ REAL ON-CHAIN TX LINK PƏNCƏRƏSİ */}
+      {/* Real On-Chain Explorer Linkləri */}
       {isTxSubmitted && (
         <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200 space-y-2 shadow-lg shadow-emerald-500/10">
           <div className="font-bold flex items-center justify-between text-emerald-300">
