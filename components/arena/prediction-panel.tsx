@@ -9,7 +9,7 @@ function getLocalBreadProvider() {
 }
 
 // YENİ ANR TOKENİ VƏ LOQOSU
-const ANR_FAUCET_ID = "0xa2f07edd81cd4d116777652f2e23dc";
+const ANR_FAUCET_ID = "0xb7326fab564eef51689d3d52d464ce";
 const ANR_LOGO_URL = "https://raw.githubusercontent.com/anaraydinli55/miden-arena/main/Gemini_Generated_Image_sa45oasa45oasa45.jpg";
 const MARKET_CONTRACT_ID = "0xc05fa91f939040d1751dc990cb2dde";
 
