@@ -1,13 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
+import { redis, INITIAL_MARKET_STATE } from '@/lib/redis';
 
-let marketState = {
-  market_id: "0x00000000000000000000000000000001",
-  total_pool: 20,
-  yes_pool: 20,
-  no_pool: 0,
-  contract_id: "0xc05fa91f939040d1751dc990cb2dde",
-};
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  return NextResponse.json(marketState);
+  try {
+    let state: any = await redis.get('market:main_state');
+    
+    if (!state) {
+      state = INITIAL_MARKET_STATE;
+      await redis.set('market:main_state', state);
+    }
+
+    return NextResponse.json(state);
+  } catch (error) {
+    console.error('Market fetch error:', error);
+    return NextResponse.json(INITIAL_MARKET_STATE, { status: 500 });
+  }
 }

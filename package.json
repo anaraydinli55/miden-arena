@@ -13,6 +13,7 @@
     "@miden-sdk/miden-wallet-adapter": "^0.16.0",
     "@miden-sdk/miden-wallet-adapter-miden": "^0.16.0",
     "@miden-sdk/react": "^0.16.0",
+    "@upstash/redis": "^1.39.0",
     "lucide-react": "^0.468.0",
     "next": "^15.5.0",
     "react": "^19.1.0",
