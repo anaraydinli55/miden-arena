@@ -1,24 +1,19 @@
-import "./globals.css";
-import Providers from "@/components/wallet/providers";
-import Sidebar from "@/components/navigation/sidebar";
+import './globals.css';
+
+export const metadata = {
+  title: 'Miden Arena',
+  description: 'Prediction market on Polygon Miden zkVM',
+};
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <body className="bg-[#050505] text-white">
-        <Providers>
-          <div className="min-h-screen">
-            <Sidebar />
-
-            <main className="ml-64 min-h-screen">
-              {children}
-            </main>
-          </div>
-        </Providers>
+      <body className="bg-[#0b0e14] text-white">
+        {children}
       </body>
     </html>
   );

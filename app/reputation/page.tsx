@@ -1,21 +1,22 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useWallet } from '@/context/WalletContext';
 
 export default function ReputationPage() {
-  const { accountId } = useWallet();
+  const [wallet, setWallet] = useState<string>('');
   const [stats, setStats] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const activeWallet = accountId || (typeof window !== 'undefined' ? localStorage.getItem('miden_account_id') : '') || 'mtst1_default_tester';
-
-  const loadData = async () => {
+  const loadData = async (targetWallet?: string) => {
     try {
-      const res = await fetch(`/api/user-stats?wallet=${encodeURIComponent(activeWallet)}`);
+      const active = targetWallet || wallet || (typeof window !== 'undefined' ? localStorage.getItem('miden_account_id') : '') || 'mtst1_default_tester';
+      const res = await fetch(`/api/user-stats?wallet=${encodeURIComponent(active)}`);
       const data = await res.json();
-      if (data.stats) setStats(data.stats);
+      if (data.stats) {
+        setStats(data.stats);
+        if (!wallet && data.stats.wallet) setWallet(data.stats.wallet);
+      }
       if (data.history) setHistory(data.history);
     } catch (e) {
       console.error(e);
@@ -25,15 +26,33 @@ export default function ReputationPage() {
   };
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 5000); // Hər 5 saniyədən bir digər cihazlardakı tx-ləri də yoxlayır
+    // Sol alt menyudakı mtst1 cüzdan ünvanını aşkarlayır
+    let foundAddr = typeof window !== 'undefined' ? localStorage.getItem('miden_account_id') : null;
+    
+    if (!foundAddr && typeof document !== 'undefined') {
+      const elements = Array.from(document.querySelectorAll('div, span, button, p'));
+      const match = elements.find(el => el.textContent && el.textContent.includes('mtst1'));
+      if (match && match.textContent) {
+        foundAddr = match.textContent.trim();
+      }
+    }
+
+    if (foundAddr) {
+      setWallet(foundAddr);
+      loadData(foundAddr);
+    } else {
+      loadData();
+    }
+
+    const interval = setInterval(() => loadData(foundAddr || undefined), 5000);
     return () => clearInterval(interval);
-  }, [activeWallet]);
+  }, []);
 
   const xp = stats?.xp || 0;
   const totalBets = stats?.totalBets || history.length;
   const totalVolume = stats?.totalVolume || 0;
   const streak = stats?.streak || (totalBets > 0 ? 1 : 0);
+  const displayWallet = wallet || stats?.wallet || 'mtst1aqq... (Connected)';
 
   return (
     <div className="p-8 max-w-6xl mx-auto text-white">
@@ -76,7 +95,7 @@ export default function ReputationPage() {
           <div>
             <div className="text-xs text-gray-400 uppercase tracking-wider">Miden Account ID</div>
             <div className="font-mono text-sm text-green-400 mt-1 break-all">
-              {activeWallet}
+              {displayWallet}
             </div>
           </div>
           <div className="flex items-center gap-2">
