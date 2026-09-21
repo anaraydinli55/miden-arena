@@ -1,2 +1,62 @@
-"use client";
-const badges=[["FIRST PREDICTION","Enter the Arena"],["SEVEN STREAK","7 consecutive predictions"],["ORACLE","10 settled predictions"],["CONVICTION","90%+ confidence"],["VETERAN","100 predictions"],["PRIVATE MIND","First private position"]]; export default function Badges(){return <div className="mx-auto max-w-6xl px-6 py-10"><h1 className="text-4xl font-bold">Badges</h1><div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{badges.map(([a,b])=><div className="card rounded-2xl p-6" key={a}><div className="grid h-14 w-14 place-items-center rounded-2xl border border-white/10 text-xl">✦</div><div className="mt-5 font-semibold">{a}</div><div className="mt-1 text-xs text-white/40">{b}</div></div>)}</div></div>}
+'use client';
+
+import React, { useEffect, useState } from 'react';
+
+export default function BadgesPage() {
+  const [badges, setBadges] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const savedWallet = localStorage.getItem('miden_wallet_address') || 
+                        localStorage.getItem('miden_active_account') || 
+                        'connected_tester';
+
+    fetch(`/api/user-stats?wallet=${encodeURIComponent(savedWallet)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.badges) setBadges(data.badges);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="p-8 max-w-6xl mx-auto text-white">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">Achievements & Badges</h1>
+        <p className="text-gray-400 mt-1">Unlock badges by interacting with Miden zkVM smart contracts</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {badges.map((badge) => (
+          <div
+            key={badge.id}
+            className={`border rounded-xl p-6 transition-all ${
+              badge.unlocked
+                ? 'bg-[#0f1319] border-indigo-500/50 shadow-lg shadow-indigo-500/10'
+                : 'bg-[#0b0e14] border-gray-800/50 opacity-50 grayscale'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className={`p-3 rounded-xl ${badge.unlocked ? 'bg-indigo-500/20 text-indigo-400' : 'bg-gray-800 text-gray-500'}`}>
+                🏆
+              </div>
+              <span
+                className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                  badge.unlocked
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'bg-gray-800 text-gray-500'
+                }`}
+              >
+                {badge.unlocked ? 'UNLOCKED' : 'LOCKED'}
+              </span>
+            </div>
+
+            <h3 className="font-bold text-lg">{badge.title}</h3>
+            <p className="text-gray-400 text-sm mt-1">{badge.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
