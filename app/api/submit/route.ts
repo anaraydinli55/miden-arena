@@ -27,15 +27,14 @@ export async function POST(req: Request) {
 
     await redis.set('market:main_state', state);
 
-    // 2. İstifadəçi xallarını gətir və artır
-    let userStats: any = (await redis.get(`user:${wallet}`)) || 
-                         (await redis.get('user:mtst1_default_tester')) || {
-                           wallet: wallet,
-                           xp: 0,
-                           totalBets: 0,
-                           totalVolume: 0,
-                           streak: 1,
-                         };
+    // 2. Yalnız vahid real cüzdanı yenilə
+    let userStats: any = (await redis.get(`user:${wallet}`)) || {
+      wallet: wallet,
+      xp: 0,
+      totalBets: 0,
+      totalVolume: 0,
+      streak: 1,
+    };
 
     userStats.wallet = wallet;
     userStats.xp = (Number(userStats.xp) || 0) + betAmount * 10;
@@ -43,12 +42,10 @@ export async function POST(req: Request) {
     userStats.totalVolume = (Number(userStats.totalVolume) || 0) + betAmount;
     userStats.lastActive = Date.now();
 
-    // Hər iki açara da yazırıq ki, heç vaxt uyğunsuzluq olmasın
     await redis.set(`user:${wallet}`, userStats);
-    await redis.set('user:mtst1_default_tester', userStats);
     await redis.zadd('leaderboard:xp', { score: userStats.xp, member: wallet });
 
-    // 3. Tranzaksiya qeydini tarixçənin ən başına əlavə et
+    // 3. Tranzaksiya Tarixçəsi
     const txRecord = {
       tx_hash: txId,
       choice: choice?.toUpperCase() || 'YES',
@@ -58,7 +55,6 @@ export async function POST(req: Request) {
     };
 
     await redis.lpush(`history:${wallet}`, JSON.stringify(txRecord));
-    await redis.lpush('history:mtst1_default_tester', JSON.stringify(txRecord));
 
     return new NextResponse(JSON.stringify({ success: true, state, stats: userStats, tx: txRecord }), {
       status: 200,
