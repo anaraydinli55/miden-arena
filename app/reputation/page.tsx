@@ -3,15 +3,17 @@
 import React, { useEffect, useState } from 'react';
 
 export default function ReputationPage() {
-  const [wallet, setWallet] = useState<string>('mtst1aqq...wr6w');
   const [stats, setStats] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const loadData = async (addr?: string) => {
+  const loadData = async () => {
     try {
-      const active = addr || wallet || 'mtst1aqq...wr6w';
-      const res = await fetch(`/api/user-stats?wallet=${encodeURIComponent(active)}`);
+      // ?t= timestamp ilə brauzerin köhnə keşi oxumasının qarşısını tam alırıq
+      const res = await fetch(`/api/user-stats?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' }
+      });
       const data = await res.json();
       if (data.stats) setStats(data.stats);
       if (data.history) setHistory(data.history);
@@ -23,20 +25,10 @@ export default function ReputationPage() {
   };
 
   useEffect(() => {
-    // Sol alt menyudakı mtst1 ünvanını təmiz süz
-    if (typeof document !== 'undefined') {
-      const el = document.querySelector('div[class*="mtst1"], button[class*="mtst1"], p[class*="mtst1"]');
-      const text = el?.textContent || document.body.innerText;
-      const match = text.match(/mtst1[a-zA-Z0-9_.]{3,25}/i);
-      if (match) {
-        setWallet(match[0]);
-        loadData(match[0]);
-      } else {
-        loadData();
-      }
-    } else {
-      loadData();
-    }
+    loadData();
+    // Hər 3 saniyədən bir Arena-da edilən yeni əməliyyatları yoxlayır
+    const interval = setInterval(loadData, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const xp = stats?.xp || 0;
@@ -46,9 +38,18 @@ export default function ReputationPage() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto text-white">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Wallet Reputation & Activity</h1>
-        <p className="text-gray-400 mt-1">Cross-device on-chain activity synced globally via Polygon Miden</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Wallet Reputation & Activity</h1>
+          <p className="text-gray-400 mt-1">Cross-device on-chain activity synced globally via Polygon Miden</p>
+        </div>
+        <button
+          onClick={loadData}
+          className="px-4 py-2 bg-[#141822] hover:bg-gray-800 border border-gray-700 text-xs font-medium rounded-lg transition-colors text-gray-300 flex items-center gap-2"
+        >
+          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping"></span>
+          Live Sync
+        </button>
       </div>
 
       {/* Statistika Kartları */}
@@ -78,14 +79,14 @@ export default function ReputationPage() {
         </div>
       </div>
 
-      {/* Cüzdan İdentifikasiyası (Təmiz və Səliqəli) */}
+      {/* Cüzdan İdentifikasiyası */}
       <div className="bg-[#0f1319] border border-gray-800 rounded-xl p-6 mb-8">
         <h2 className="text-lg font-semibold mb-4">Connected Identity</h2>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-[#141822] rounded-lg border border-gray-800/60">
           <div>
             <div className="text-xs text-gray-400 uppercase tracking-wider">Miden Account ID</div>
             <div className="font-mono text-base text-emerald-400 font-semibold mt-1">
-              {wallet}
+              mtst1aqq...wr6w
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -117,7 +118,7 @@ export default function ReputationPage() {
               {history.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-gray-500 font-sans">
-                    {loading ? 'Fetching cross-device history...' : '2 txs recorded in Leaderboard! Synced.'}
+                    {loading ? 'Fetching cross-device history...' : 'No transactions yet. Place a bet in Arena!'}
                   </td>
                 </tr>
               ) : (

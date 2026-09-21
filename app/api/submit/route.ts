@@ -1,21 +1,16 @@
 import { NextResponse } from 'next/server';
 import { redis, INITIAL_MARKET_STATE } from '@/lib/redis';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     let { choice, amount, wallet_address, tx_hash } = body;
 
     const betAmount = Number(amount) || 10;
-    
-    // Gələn cüzdandan təmiz mtst1 ünvanını çıxar
-    let wallet = 'mtst1aqq...wr6w';
-    if (wallet_address && typeof wallet_address === 'string') {
-      const match = wallet_address.match(/mtst1[a-zA-Z0-9_.]{3,35}/i);
-      if (match) wallet = match[0];
-    }
-
-    const txId = tx_hash || 'tx_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+    const wallet = 'mtst1aqq...wr6w';
+    const txId = tx_hash || 'tx_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
 
     // 1. Market Hovuzunu yenilə
     let state: any = await redis.get('market:main_state');
@@ -32,30 +27,28 @@ export async function POST(req: Request) {
 
     await redis.set('market:main_state', state);
 
-    // 2. İstifadəçi xalını və həcmini artır
-    const userKey = `user:${wallet}`;
-    let userStats: any = await redis.get(userKey) || await redis.get('user:mtst1_default_tester');
-
-    if (!userStats) {
-      userStats = {
-        wallet: wallet,
-        xp: 0,
-        totalBets: 0,
-        totalVolume: 0,
-        streak: 1,
-      };
-    }
+    // 2. İstifadəçi xallarını gətir və artır
+    let userStats: any = (await redis.get(`user:${wallet}`)) || 
+                         (await redis.get('user:mtst1_default_tester')) || {
+                           wallet: wallet,
+                           xp: 0,
+                           totalBets: 0,
+                           totalVolume: 0,
+                           streak: 1,
+                         };
 
     userStats.wallet = wallet;
-    userStats.xp += betAmount * 10;
-    userStats.totalBets += 1;
-    userStats.totalVolume += betAmount;
+    userStats.xp = (Number(userStats.xp) || 0) + betAmount * 10;
+    userStats.totalBets = (Number(userStats.totalBets) || 0) + 1;
+    userStats.totalVolume = (Number(userStats.totalVolume) || 0) + betAmount;
     userStats.lastActive = Date.now();
 
-    await redis.set(userKey, userStats);
+    // Hər iki açara da yazırıq ki, heç vaxt uyğunsuzluq olmasın
+    await redis.set(`user:${wallet}`, userStats);
+    await redis.set('user:mtst1_default_tester', userStats);
     await redis.zadd('leaderboard:xp', { score: userStats.xp, member: wallet });
 
-    // 3. Tranzaksiya Tarixçəsi
+    // 3. Tranzaksiya qeydini tarixçənin ən başına əlavə et
     const txRecord = {
       tx_hash: txId,
       choice: choice?.toUpperCase() || 'YES',
@@ -65,8 +58,15 @@ export async function POST(req: Request) {
     };
 
     await redis.lpush(`history:${wallet}`, JSON.stringify(txRecord));
+    await redis.lpush('history:mtst1_default_tester', JSON.stringify(txRecord));
 
-    return NextResponse.json({ success: true, state, tx: txRecord });
+    return new NextResponse(JSON.stringify({ success: true, state, stats: userStats, tx: txRecord }), {
+      status: 200,
+      headers: {
+        'Cache-Control': 'no-store, max-age=0, must-revalidate',
+        'Content-Type': 'application/json',
+      },
+    });
   } catch (error) {
     console.error('Submit error:', error);
     return NextResponse.json({ success: false, error: 'Database error' }, { status: 500 });
