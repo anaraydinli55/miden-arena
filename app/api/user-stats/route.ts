@@ -17,10 +17,10 @@ export async function GET(req: Request) {
                          streak: 1,
                        };
 
-  // Tarixçəni gətir (ən son 50 əməliyyat)
-  let rawHistory: any[] = (await redis.lrange(`history:${wallet}`, 0, 49)) || [];
+  // Tarixçəni gətir
+  let rawHistory: any[] = (await redis.lrange(`history:${wallet}`, 0, 99)) || [];
   if (rawHistory.length === 0) {
-    rawHistory = (await redis.lrange('history:mtst1_default_tester', 0, 49)) || [];
+    rawHistory = (await redis.lrange('history:mtst1_default_tester', 0, 99)) || [];
   }
 
   const history = rawHistory.map((item) => {
@@ -31,37 +31,49 @@ export async function GET(req: Request) {
     }
   }).filter(Boolean);
 
-  // Əgər tarixçədə daha çox əməliyyat varsa, sayını sinxronlaşdır
-  if (history.length > (userStats.totalBets || 0)) {
-    userStats.totalBets = history.length;
-    userStats.totalVolume = history.reduce((sum, t) => sum + (Number(t.amount) || 10), 0);
-    userStats.xp = userStats.totalVolume * 10;
-    await redis.set(`user:${wallet}`, userStats);
-    await redis.set('user:mtst1_default_tester', userStats);
-  }
+  // Tarixçəyə əsasən dəqiq tx sayını hesabla
+  const bets = Math.max(Number(userStats.totalBets) || 0, history.length);
+  userStats.totalBets = bets;
+  userStats.totalVolume = bets * 10;
+  userStats.xp = bets * 100;
 
-  const xp = Number(userStats.xp) || 0;
-  const bets = Number(userStats.totalBets) || 0;
-  const volume = Number(userStats.totalVolume) || 0;
-
+  // 1, 10, 25, 50 Prediction Rozetləri
   const badges = [
     {
-      id: 'first_bet',
+      id: 'tx_1',
       title: 'First Step',
-      desc: 'Placed your first prediction on Miden zkVM',
+      desc: 'Placed 1 prediction on Miden zkVM',
+      target: 1,
+      current: bets,
       unlocked: bets >= 1,
+      icon: '🌱',
     },
     {
-      id: 'high_roller',
-      title: 'ANR Whale',
-      desc: 'Staked over 20 ANR total volume',
-      unlocked: volume >= 20,
+      id: 'tx_10',
+      title: 'Miden Pioneer',
+      desc: 'Placed 10 predictions on Miden zkVM',
+      target: 10,
+      current: bets,
+      unlocked: bets >= 10,
+      icon: '⚡',
     },
     {
-      id: 'xp_master',
-      title: 'Miden Veteran',
-      desc: 'Earned 100+ XP across all sessions',
-      unlocked: xp >= 100,
+      id: 'tx_25',
+      title: 'Arena Master',
+      desc: 'Placed 25 predictions on Miden zkVM',
+      target: 25,
+      current: bets,
+      unlocked: bets >= 25,
+      icon: '⚔️',
+    },
+    {
+      id: 'tx_50',
+      title: 'Miden Legend',
+      desc: 'Placed 50 predictions on Miden zkVM',
+      target: 50,
+      current: bets,
+      unlocked: bets >= 50,
+      icon: '👑',
     },
   ];
 
@@ -74,7 +86,7 @@ export async function GET(req: Request) {
     {
       status: 200,
       headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
         'Content-Type': 'application/json',
       },
     }
