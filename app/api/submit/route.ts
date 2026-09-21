@@ -7,10 +7,17 @@ export async function POST(req: Request) {
     let { choice, amount, wallet_address, tx_hash } = body;
 
     const betAmount = Number(amount) || 10;
-    const wallet = wallet_address ? wallet_address.trim().toLowerCase() : 'mtst1_default_tester';
+    
+    // Gələn cüzdandan təmiz mtst1 ünvanını çıxar
+    let wallet = 'mtst1aqq...wr6w';
+    if (wallet_address && typeof wallet_address === 'string') {
+      const match = wallet_address.match(/mtst1[a-zA-Z0-9_.]{3,35}/i);
+      if (match) wallet = match[0];
+    }
+
     const txId = tx_hash || 'tx_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
 
-    // 1. Ümumi Market Hovuzunu yenilə
+    // 1. Market Hovuzunu yenilə
     let state: any = await redis.get('market:main_state');
     if (!state) state = { ...INITIAL_MARKET_STATE };
 
@@ -25,9 +32,9 @@ export async function POST(req: Request) {
 
     await redis.set('market:main_state', state);
 
-    // 2. Cüzdanın qalıcı statistikasını yenilə
+    // 2. İstifadəçi xalını və həcmini artır
     const userKey = `user:${wallet}`;
-    let userStats: any = await redis.get(userKey);
+    let userStats: any = await redis.get(userKey) || await redis.get('user:mtst1_default_tester');
 
     if (!userStats) {
       userStats = {
@@ -36,10 +43,10 @@ export async function POST(req: Request) {
         totalBets: 0,
         totalVolume: 0,
         streak: 1,
-        createdAt: Date.now(),
       };
     }
 
+    userStats.wallet = wallet;
     userStats.xp += betAmount * 10;
     userStats.totalBets += 1;
     userStats.totalVolume += betAmount;
@@ -48,7 +55,7 @@ export async function POST(req: Request) {
     await redis.set(userKey, userStats);
     await redis.zadd('leaderboard:xp', { score: userStats.xp, member: wallet });
 
-    // 3. Tranzaksiya Tarixçəsinə Əlavə Et (Heç vaxt silinməyən siyahı)
+    // 3. Tranzaksiya Tarixçəsi
     const txRecord = {
       tx_hash: txId,
       choice: choice?.toUpperCase() || 'YES',
