@@ -7,11 +7,7 @@ export default function BadgesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedWallet = localStorage.getItem('miden_wallet_address') || 
-                        localStorage.getItem('miden_active_account') || 
-                        'connected_tester';
-
-    fetch(`/api/user-stats?wallet=${encodeURIComponent(savedWallet)}`)
+    fetch('/api/user-stats')
       .then((res) => res.json())
       .then((data) => {
         if (data.badges) setBadges(data.badges);
@@ -42,13 +38,13 @@ export default function BadgesPage() {
                 🏆
               </div>
               <span
-                className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                className={`text-xs px-2.5 py-1 rounded-full font-bold ${
                   badge.unlocked
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                     : 'bg-gray-800 text-gray-500'
                 }`}
               >
-                {badge.unlocked ? 'UNLOCKED' : 'LOCKED'}
+                {badge.unlocked ? '✓ UNLOCKED' : 'LOCKED'}
               </span>
             </div>
 
