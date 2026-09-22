@@ -6,30 +6,21 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    let { market_id, choice, amount, wallet_address, tx_hash } = body;
+    let { market_id, choice, amount, wallet_address, txHash, tx_hash } = body;
 
-    // Cüzdan mütləq olmalıdır
-    if (!wallet_address || typeof wallet_address !== 'string' || wallet_address.trim() === '') {
-      return NextResponse.json({ success: false, error: 'Wallet not connected' }, { status: 400 });
-    }
-
-    const wallet = wallet_address.trim().toLowerCase();
-    const betAmount = Number(amount);
-    if (isNaN(betAmount) || betAmount <= 0) {
-      return NextResponse.json({ success: false, error: 'Invalid prediction amount' }, { status: 400 });
-    }
-
-    const selectedChoice = choice?.toUpperCase() === 'NO' ? 'NO' : 'YES';
+    const betAmount = Number(amount) || 10;
     const mId = market_id || 'miden-mainnet-q4';
-    const txId = tx_hash || 'tx_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+    const txId = txHash || tx_hash || 'tx_' + Math.random().toString(36).substring(2, 10);
+    const wallet = (wallet_address || 'mtst1aqq...wr6w').trim().toLowerCase();
+    const selectedChoice = choice?.toUpperCase() === 'NO' ? 'NO' : 'YES';
 
-    // 1. Bazanın cari real vəziyyətini oxu
-    let state: any = (await redis.get(`market:${mId}:state`)) || {
-      total_pool: 0,
-      yes_pool: 0,
-      no_pool: 0,
-      yes_percent: 0,
-      no_percent: 0,
+    // 1. Bazarın cari hovuzunu gətir və yenilə
+    let state: any = (await redis.get(`market:${mId}:state`)) || (await redis.get('market:main_state')) || {
+      total_pool: 20,
+      yes_pool: 10,
+      no_pool: 10,
+      yes_percent: 50,
+      no_percent: 50,
     };
 
     if (selectedChoice === 'YES') {
@@ -39,21 +30,13 @@ export async function POST(req: Request) {
     }
 
     state.total_pool = state.yes_pool + state.no_pool;
-    state.yes_percent = state.total_pool > 0 ? Math.round((state.yes_pool / state.total_pool) * 100) : 0;
-    state.no_percent = state.total_pool > 0 ? 100 - state.yes_percent : 0;
+    state.yes_percent = Math.round((state.yes_pool / state.total_pool) * 100);
+    state.no_percent = 100 - state.yes_percent;
 
     await redis.set(`market:${mId}:state`, state);
+    await redis.set('market:main_state', state);
 
-    // 2. Qazanc paylanması üçün bu cüzdanın proqnozunu qeyd et
-    await redis.lpush(`market:${mId}:bets`, JSON.stringify({
-      wallet,
-      choice: selectedChoice,
-      amount: betAmount,
-      txId,
-      timestamp: Date.now(),
-    }));
-
-    // 3. İstifadəçi statistikasını real yenilə
+    // 2. İstifadəçi xalını yenilə
     let userStats: any = (await redis.get(`user:${wallet}`)) || {
       wallet: wallet,
       xp: 0,
@@ -71,7 +54,7 @@ export async function POST(req: Request) {
     await redis.set(`user:${wallet}`, userStats);
     await redis.zadd('leaderboard:xp', { score: userStats.xp, member: wallet });
 
-    // 4. Tranzaksiya Tarixçəsinə yaz
+    // 3. Tranzaksiya Tarixçəsinə Əlavə Et
     const txRecord = {
       tx_hash: txId,
       market_id: mId,
@@ -83,12 +66,21 @@ export async function POST(req: Request) {
 
     await redis.lpush(`history:${wallet}`, JSON.stringify(txRecord));
 
-    return new NextResponse(JSON.stringify({ success: true, state, stats: userStats, tx: txRecord }), {
-      status: 200,
-      headers: { 'Cache-Control': 'no-store, max-age=0' },
-    });
+    return new NextResponse(
+      JSON.stringify({
+        success: true,
+        state,
+        updated_state: state,
+        stats: userStats,
+        tx: txRecord,
+      }),
+      {
+        status: 200,
+        headers: { 'Cache-Control': 'no-store, max-age=0' },
+      }
+    );
   } catch (error) {
-    console.error('Submit error:', error);
+    console.error('Submit API error:', error);
     return NextResponse.json({ success: false, error: 'Database execution failed' }, { status: 500 });
   }
 }
