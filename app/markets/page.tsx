@@ -2,14 +2,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { OFFICIAL_MARKETS, MarketMeta } from '@/lib/markets';
+import { useWallet } from '@/components/wallet/wallet-provider';
 
-const MARKET_CONTRACT_ID = '0xc05fa91f58b7326fab000000000000000000002dde';
-const ANR_FAUCET_ID = '0xb7326fab000000000000000000000000000064ce';
+const ANR_FAUCET_ID = '0xb7326fab564eef51689d3d52d464ce';
+const MARKET_CONTRACT_ID = '0xc05fa91f939040d1751dc990cb2dde';
+
+function getLocalBreadProvider() {
+  if (typeof window === 'undefined') return null;
+  return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
+}
 
 export default function MarketsPage() {
+  const { address, connected, connect } = useWallet();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [pools, setPools] = useState<Record<string, any>>({});
-  const [wallet, setWallet] = useState<string>('');
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -22,19 +28,6 @@ export default function MarketsPage() {
     message: string;
     txHash?: string;
   } | null>(null);
-
-  useEffect(() => {
-    const checkWallet = () => {
-      if (typeof document !== 'undefined') {
-        const text = document.body.innerText;
-        const match = text.match(/mtst1[a-zA-Z0-9_.]{3,45}/i);
-        if (match) setWallet(match[0]);
-      }
-    };
-    checkWallet();
-    const timer = setInterval(checkWallet, 1500);
-    return () => clearInterval(timer);
-  }, []);
 
   const fetchPools = async () => {
     try {
@@ -50,8 +43,15 @@ export default function MarketsPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const openBetModal = (market: MarketMeta, choice: 'YES' | 'NO') => {
-    if (!wallet) {
+  const openBetModal = async (market: MarketMeta, choice: 'YES' | 'NO') => {
+    let activeAccount = address;
+    if (!connected || !activeAccount) {
+      try {
+        activeAccount = await connect();
+      } catch (e) {}
+    }
+
+    if (!activeAccount) {
       setTxNotification({
         type: 'error',
         message: '⚠️ Zəhmət olmasa sol menyudan Bread Wallet-i qoşun.',
@@ -59,15 +59,16 @@ export default function MarketsPage() {
       setTimeout(() => setTxNotification(null), 4000);
       return;
     }
+
     setSelectedMarket(market);
     setSelectedChoice(choice);
     setBetAmount(10);
     setModalOpen(true);
   };
 
-  // 🍞 Əsl Bread Wallet Tranzaksiyasını İcra Etmək (requestSend + 6 decimals)
+  // 🍞 Real Bread Wallet Tranzaksiya İcrası (requestSend + 6 decimals)
   const handleConfirmBreadTransaction = async () => {
-    if (!selectedMarket || !wallet) return;
+    if (!selectedMarket) return;
 
     setIsSigning(true);
     setTxNotification({
@@ -76,20 +77,25 @@ export default function MarketsPage() {
     });
 
     try {
-      const breadProvider = (typeof window !== 'undefined' && (
-        (window as any).bread || 
-        (window as any).midenWallet || 
-        (window as any).miden || 
-        (window as any).__MIDEN_WALLET__
-      ));
+      const breadProvider = getLocalBreadProvider();
+      if (!breadProvider) {
+        throw new Error('Bread Wallet brauzerinizdə tapılmadı.');
+      }
 
-      let activeAccount = wallet;
-
-      if (breadProvider && typeof breadProvider.connect === 'function') {
+      let activeAccount = address;
+      if (!activeAccount && typeof breadProvider.connect === 'function') {
         try {
           const res = await breadProvider.connect();
-          activeAccount = res?.address || (res?.accounts && res.accounts[0]) || activeAccount;
+          activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
         } catch (e) {}
+      }
+
+      if (!activeAccount) {
+        activeAccount = await connect();
+      }
+
+      if (!activeAccount) {
+        throw new Error('Bread Wallet bağlantısı təsdiqlənmədi.');
       }
 
       const inputNum = Number(betAmount) || 10;
@@ -104,24 +110,24 @@ export default function MarketsPage() {
         amount: sendBaseUnits,
       };
 
-      console.log('Submitting payload to Bread Wallet:', txObj);
+      console.log('Markets: Submitting transaction payload to Bread Wallet:', txObj);
 
       let txResponse: any = null;
 
-      if (breadProvider && typeof breadProvider.requestSend === 'function') {
+      if (typeof breadProvider.requestSend === 'function') {
         txResponse = await breadProvider.requestSend(txObj);
-      } else if (breadProvider && typeof breadProvider.requestSendTransaction === 'function') {
+      } else if (typeof breadProvider.requestSendTransaction === 'function') {
         txResponse = await breadProvider.requestSendTransaction(txObj);
-      } else if (breadProvider && typeof breadProvider.sendTransaction === 'function') {
+      } else if (typeof breadProvider.sendTransaction === 'function') {
         txResponse = await breadProvider.sendTransaction(txObj);
-      } else if (breadProvider && typeof breadProvider.request === 'function') {
+      } else if (typeof breadProvider.request === 'function') {
         txResponse = await breadProvider.request({
           method: 'miden_sendTransaction',
           params: [txObj],
         });
       }
 
-      console.log('Bread Wallet response:', txResponse);
+      console.log('Markets: Bread Wallet response:', txResponse);
 
       if (
         txResponse &&
@@ -133,7 +139,11 @@ export default function MarketsPage() {
         throw new Error(txResponse.error?.message || txResponse.error || 'Bread Wallet tranzaksiyanı rədd etdi.');
       }
 
-      const confirmedTx = txResponse?.transactionId || txResponse?.hash || txResponse?.id || `0x_miden_zk_${Date.now().toString(16)}`;
+      const confirmedTx =
+        txResponse?.transactionId ||
+        txResponse?.hash ||
+        txResponse?.id ||
+        `0x_miden_zk_${activeAccount.slice(0, 8)}_${Date.now().toString(16)}`;
 
       // API Yeniləməsi
       const submitRes = await fetch('/api/submit', {
@@ -159,10 +169,10 @@ export default function MarketsPage() {
         fetchPools();
         setTimeout(() => setTxNotification(null), 6000);
       } else {
-        throw new Error(data.error || 'Failed to submit transaction');
+        throw new Error(data.error || 'Failed to record transaction');
       }
     } catch (err: any) {
-      console.error('Bread submission error:', err);
+      console.error('Markets submission error:', err);
       setTxNotification({
         type: 'error',
         message: `❌ Cüzdan Xətası: ${err.message || 'Tranzaksiya icra olunmadı'}`,
@@ -336,7 +346,7 @@ export default function MarketsPage() {
         })}
       </div>
 
-      {/* Bread ZK Modal */}
+      {/* Modal */}
       {modalOpen && selectedMarket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="bg-[#121620] border border-gray-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
@@ -372,7 +382,7 @@ export default function MarketsPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Connected:</span>
-                <span className="text-emerald-400 font-semibold">{wallet}</span>
+                <span className="text-emerald-400 font-semibold">{address || 'Bread Wallet'}</span>
               </div>
             </div>
 
