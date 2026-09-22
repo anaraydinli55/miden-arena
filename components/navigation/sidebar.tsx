@@ -49,11 +49,7 @@ export default function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-white/10 bg-[#08090d]">
       <div className="flex h-20 items-center gap-3 border-b border-white/10 px-6">
-        <img
-          src={LOGO_URL}
-          alt="Miden Arena Logo"
-          className="h-10 w-10 rounded-xl object-cover border border-cyan-400/40 shadow-md shadow-cyan-500/20"
-        />
+        <img src="/miden-arena.png" alt="Miden Arena" className="w-10 h-10 rounded-xl object-contain shadow-md" />
         <div>
           <div className="text-lg font-bold tracking-wider text-white">
             MIDEN
