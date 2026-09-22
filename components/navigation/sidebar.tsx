@@ -21,7 +21,6 @@ export function Sidebar() {
 
   return (
     <aside className="w-64 bg-[#0b0e14] border-r border-gray-800/80 min-h-screen flex flex-col justify-between p-4 select-none shrink-0">
-      {/* Üst Loqo */}
       <div>
         <Link href="/" className="flex items-center gap-3 px-2 py-3 mb-6 group">
           <img
@@ -35,7 +34,6 @@ export function Sidebar() {
           </div>
         </Link>
 
-        {/* Menyu Keçidləri */}
         <nav className="space-y-1">
           {navigation.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
@@ -58,7 +56,6 @@ export function Sidebar() {
         </nav>
       </div>
 
-      {/* Aşağı Cüzdan və Şəbəkə Bölməsi */}
       <div className="space-y-3 pt-4 border-t border-gray-800/60">
         <div className="p-3.5 rounded-2xl bg-[#0f1319] border border-gray-800/80">
           <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Wallet</div>
@@ -88,7 +85,6 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* Şəbəkə */}
         <div className="px-2">
           <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Network</div>
           <div className="text-xs font-bold text-cyan-400 mt-0.5 flex items-center gap-1.5">
@@ -100,3 +96,5 @@ export function Sidebar() {
     </aside>
   );
 }
+
+export default Sidebar;
