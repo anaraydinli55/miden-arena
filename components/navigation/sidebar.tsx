@@ -20,13 +20,14 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 bg-[#0b0e14] border-r border-gray-800/80 min-h-screen flex flex-col justify-between p-4 select-none shrink-0">
+    <aside className="w-64 bg-[#0b0e14] border-r border-gray-800/80 h-screen sticky top-0 flex flex-col justify-between p-4 select-none shrink-0 z-40">
+      {/* Üst Loqo və Menyu Keçidləri */}
       <div>
-        <Link href="/" className="flex items-center gap-3 px-2 py-3 mb-6 group">
+        <Link href="/" className="flex items-center gap-3 px-2 py-2.5 mb-5 group">
           <img
             src="/miden-arena.png"
             alt="Miden Arena Logo"
-            className="w-10 h-10 rounded-xl object-contain shadow-lg shadow-amber-500/10 border border-gray-800"
+            className="w-10 h-10 rounded-xl object-contain shadow-md shadow-amber-500/10 border border-gray-800"
           />
           <div>
             <div className="font-black text-base text-white tracking-wider leading-none">MIDEN</div>
@@ -42,7 +43,7 @@ export function Sidebar() {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-sm font-semibold transition-all ${
+                className={`flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                   isActive
                     ? 'bg-[#141822] text-white border border-gray-800 shadow-md shadow-black/40'
                     : 'text-gray-400 hover:text-white hover:bg-[#121620]/60'
@@ -56,13 +57,14 @@ export function Sidebar() {
         </nav>
       </div>
 
-      <div className="space-y-3 pt-4 border-t border-gray-800/60">
-        <div className="p-3.5 rounded-2xl bg-[#0f1319] border border-gray-800/80">
-          <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Wallet</div>
+      {/* Aşağı Cüzdan və Şəbəkə Bölməsi */}
+      <div className="space-y-3 pt-3 border-t border-gray-800/60">
+        <div className="p-3 rounded-2xl bg-[#0f1319] border border-gray-800/80">
+          <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Wallet</div>
           
           {connected && address ? (
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0 font-mono text-xs text-emerald-400">
+              <div className="flex items-center gap-1.5 min-w-0 font-mono text-xs text-emerald-400">
                 <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
                 <span className="truncate">
                   {address.length > 16 ? `${address.slice(0, 8)}...${address.slice(-4)}` : address}
@@ -85,7 +87,7 @@ export function Sidebar() {
           )}
         </div>
 
-        <div className="px-2">
+        <div className="px-1">
           <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Network</div>
           <div className="text-xs font-bold text-cyan-400 mt-0.5 flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-cyan-400"></span>
