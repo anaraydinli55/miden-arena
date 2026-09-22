@@ -2,15 +2,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { OFFICIAL_MARKETS, MarketMeta } from '@/lib/markets';
+import { executeOnChainPrediction } from '@/components/transaction/onchain-submit';
 
 export default function MarketsPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [pools, setPools] = useState<Record<string, any>>({});
   const [wallet, setWallet] = useState<string>('');
   const [submittingId, setSubmittingId] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [txResult, setTxResult] = useState<{
+    status: 'pending' | 'success' | 'error';
+    message: string;
+    txHash?: string;
+  } | null>(null);
 
-  // Cüzdanı oxu
+  // Cüzdanı aşkarlayırıq
   useEffect(() => {
     const checkWallet = () => {
       if (typeof document !== 'undefined') {
@@ -24,7 +29,6 @@ export default function MarketsPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Canlı real hovuzları gətir
   const fetchPools = async () => {
     try {
       const res = await fetch(`/api/market?t=${Date.now()}`, { cache: 'no-store' });
@@ -39,44 +43,58 @@ export default function MarketsPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Proqnoz etmək
-  const handleBet = async (market: MarketMeta, choice: 'YES' | 'NO') => {
+  // 100% On-Chain Prediction Handler
+  const handleOnChainBet = async (market: MarketMeta, choice: 'YES' | 'NO') => {
     if (!wallet) {
-      setMessage({ text: '⚠️ Please connect your Miden wallet from the sidebar first.', type: 'error' });
-      setTimeout(() => setMessage(null), 4000);
+      setTxResult({
+        status: 'error',
+        message: '⚠️ Please connect your Miden wallet from the sidebar to sign on-chain transactions.',
+      });
+      setTimeout(() => setTxResult(null), 5000);
       return;
     }
 
     setSubmittingId(market.id);
-    setMessage(null);
+    setTxResult({
+      status: 'pending',
+      message: `⏳ Requesting Miden zkVM signature for ${choice} (10 ANR)...`,
+    });
 
     try {
-      const res = await fetch('/api/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          market_id: market.id,
-          choice,
-          amount: 10,
-          wallet_address: wallet,
-        }),
+      // On-chain tranzaksiyanı başladırıq
+      const result = await executeOnChainPrediction({
+        marketId: market.id,
+        choice,
+        amount: 10,
+        walletAddress: wallet,
       });
-      const data = await res.json();
-      if (data.success) {
-        setPools((prev) => ({ ...prev, [market.id]: data.state }));
-        setMessage({ text: `✓ Successfully staked 10 ANR on "${choice}" for this market!`, type: 'success' });
-        setTimeout(() => setMessage(null), 4000);
+
+      if (result.success && result.txHash) {
+        setTxResult({
+          status: 'success',
+          message: `✓ On-Chain ZK Transaction Confirmed on Miden Testnet! (+100 XP)`,
+          txHash: result.txHash,
+        });
+        fetchPools();
+        setTimeout(() => setTxResult(null), 6000);
       } else {
-        setMessage({ text: `❌ ${data.error || 'Failed to submit'}`, type: 'error' });
+        setTxResult({
+          status: 'error',
+          message: `❌ ${result.error || 'Transaction rejected by wallet.'}`,
+        });
+        setTimeout(() => setTxResult(null), 5000);
       }
-    } catch (err) {
-      setMessage({ text: '❌ Network error', type: 'error' });
+    } catch (err: any) {
+      setTxResult({
+        status: 'error',
+        message: `❌ ${err.message || 'On-chain execution failed.'}`,
+      });
+      setTimeout(() => setTxResult(null), 5000);
     } finally {
       setSubmittingId(null);
     }
   };
 
-  // Müddəti bitmişləri avtomatik gizlət
   const now = Date.now();
   const activeMarkets = OFFICIAL_MARKETS.filter((m) => m.expiresAt > now);
 
@@ -95,30 +113,47 @@ export default function MarketsPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto text-white">
-      {/* Başlıq */}
+      {/* Üst Başlıq */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Live Markets</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">On-Chain Markets</h1>
           <p className="text-gray-400 text-sm mt-1">
-            Zero-Knowledge prediction markets running on Polygon Miden zkVM
+            Zero-Knowledge state contracts verified on Polygon Miden Testnet
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3.5 py-1.5 rounded-full font-bold">
-            ● {filteredMarkets.length} Active zk-Markets
+          <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3.5 py-1.5 rounded-full font-bold flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            {filteredMarkets.length} Live zk-Markets
           </span>
         </div>
       </div>
 
-      {message && (
+      {/* On-Chain Tranzaksiya Bildiriş Pəncərəsi */}
+      {txResult && (
         <div
-          className={`mb-6 p-4 rounded-xl border text-sm font-semibold flex items-center justify-between animate-fadeIn ${
-            message.type === 'success'
+          className={`mb-6 p-4 rounded-xl border text-sm font-semibold flex flex-col md:flex-row md:items-center justify-between gap-2 animate-fadeIn ${
+            txResult.status === 'success'
               ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              : txResult.status === 'pending'
+              ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
               : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
           }`}
         >
-          <span>{message.text}</span>
+          <div>
+            <span>{txResult.message}</span>
+            {txResult.txHash && (
+              <div className="font-mono text-xs text-indigo-300 mt-1 break-all">
+                Tx Hash: {txResult.txHash}
+              </div>
+            )}
+          </div>
+          {txResult.status === 'pending' && (
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="h-3 w-3 rounded-full border-2 border-amber-400 border-t-transparent animate-spin"></span>
+              Awaiting Wallet...
+            </div>
+          )}
         </div>
       )}
 
@@ -139,7 +174,7 @@ export default function MarketsPage() {
         ))}
       </div>
 
-      {/* Real Bazarlar */}
+      {/* On-Chain Kartlar */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredMarkets.map((market) => {
           const poolData = pools[market.id] || {
@@ -162,7 +197,7 @@ export default function MarketsPage() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      Active
+                      On-Chain zkVM
                     </span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300">
                       {market.category}
@@ -179,7 +214,6 @@ export default function MarketsPage() {
                   </h3>
                 </div>
 
-                {/* Real Hovuz və Vaxt */}
                 <div className="flex items-center justify-between text-xs text-gray-400 py-3 px-3.5 rounded-xl bg-[#0d1017] border border-gray-800/60 mb-5 font-mono">
                   <div className="flex items-center gap-1.5 text-gray-300">
                     <span>📊 {poolData.total_pool} {market.tokenSymbol}</span>
@@ -190,7 +224,6 @@ export default function MarketsPage() {
                 </div>
               </div>
 
-              {/* Faiz Barı və Düymələr */}
               <div>
                 <div className="mb-4">
                   <div className="flex justify-between text-xs font-bold mb-1.5 font-mono">
@@ -219,20 +252,29 @@ export default function MarketsPage() {
                   </div>
                 </div>
 
+                {/* On-Chain Cüzdan İmzalı YES / NO Düymələri */}
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     disabled={isSubmitting}
-                    onClick={() => handleBet(market, 'YES')}
-                    className="py-2.5 px-4 rounded-xl bg-[#e07a1e] hover:bg-[#c96914] text-white text-xs font-extrabold transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1"
+                    onClick={() => handleOnChainBet(market, 'YES')}
+                    className="py-2.5 px-4 rounded-xl bg-[#e07a1e] hover:bg-[#c96914] text-white text-xs font-extrabold transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
                   >
-                    {isSubmitting ? '...' : 'Yes (+10 ANR)'}
+                    {isSubmitting ? (
+                      <span className="h-3 w-3 rounded-full border-2 border-white border-t-transparent animate-spin"></span>
+                    ) : (
+                      '⚡ Yes (10 ANR)'
+                    )}
                   </button>
                   <button
                     disabled={isSubmitting}
-                    onClick={() => handleBet(market, 'NO')}
-                    className="py-2.5 px-4 rounded-xl bg-[#1a202c] hover:bg-gray-800 text-gray-200 border border-gray-700 text-xs font-extrabold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1"
+                    onClick={() => handleOnChainBet(market, 'NO')}
+                    className="py-2.5 px-4 rounded-xl bg-[#1a202c] hover:bg-gray-800 text-gray-200 border border-gray-700 text-xs font-extrabold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
                   >
-                    {isSubmitting ? '...' : 'No (+10 ANR)'}
+                    {isSubmitting ? (
+                      <span className="h-3 w-3 rounded-full border-2 border-white border-t-transparent animate-spin"></span>
+                    ) : (
+                      '⚡ No (10 ANR)'
+                    )}
                   </button>
                 </div>
               </div>
