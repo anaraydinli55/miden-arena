@@ -5,23 +5,16 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET(req: Request) {
-  const wallet = 'mtst1aqq...wr6w';
+  const { searchParams } = new URL(req.url);
+  const rawWallet = searchParams.get('wallet')?.trim()?.toLowerCase();
 
-  // Canlı statistikaları gətir
-  let userStats: any = (await redis.get(`user:${wallet}`)) || 
-                       (await redis.get('user:mtst1_default_tester')) || {
-                         wallet: wallet,
-                         xp: 0,
-                         totalBets: 0,
-                         totalVolume: 0,
-                         streak: 1,
-                       };
-
-  // Tarixçəni gətir
-  let rawHistory: any[] = (await redis.lrange(`history:${wallet}`, 0, 99)) || [];
-  if (rawHistory.length === 0) {
-    rawHistory = (await redis.lrange('history:mtst1_default_tester', 0, 99)) || [];
+  if (!rawWallet) {
+    return NextResponse.json({ stats: null, badges: [], history: [] });
   }
+
+  // Yalnız bu real cüzdanın datasını gətir
+  let userStats: any = await redis.get(`user:${rawWallet}`);
+  let rawHistory: any[] = (await redis.lrange(`history:${rawWallet}`, 0, 99)) || [];
 
   const history = rawHistory.map((item) => {
     try {
@@ -31,21 +24,26 @@ export async function GET(req: Request) {
     }
   }).filter(Boolean);
 
-  // Tarixçəyə əsasən dəqiq tx sayını hesabla
-  const bets = Math.max(Number(userStats.totalBets) || 0, history.length);
-  userStats.totalBets = bets;
-  userStats.totalVolume = bets * 10;
-  userStats.xp = bets * 100;
+  const bets = history.length;
+  const volume = history.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const xp = volume * 10;
 
-  // 1, 10, 25, 50 Prediction Rozetləri
+  const realStats = {
+    wallet: rawWallet,
+    xp: userStats?.xp ?? xp,
+    totalBets: userStats?.totalBets ?? bets,
+    totalVolume: userStats?.totalVolume ?? volume,
+    streak: bets > 0 ? 1 : 0,
+  };
+
   const badges = [
     {
       id: 'tx_1',
       title: 'First Step',
       desc: 'Placed 1 prediction on Miden zkVM',
       target: 1,
-      current: bets,
-      unlocked: bets >= 1,
+      current: realStats.totalBets,
+      unlocked: realStats.totalBets >= 1,
       icon: '🌱',
     },
     {
@@ -53,8 +51,8 @@ export async function GET(req: Request) {
       title: 'Miden Pioneer',
       desc: 'Placed 10 predictions on Miden zkVM',
       target: 10,
-      current: bets,
-      unlocked: bets >= 10,
+      current: realStats.totalBets,
+      unlocked: realStats.totalBets >= 10,
       icon: '⚡',
     },
     {
@@ -62,8 +60,8 @@ export async function GET(req: Request) {
       title: 'Arena Master',
       desc: 'Placed 25 predictions on Miden zkVM',
       target: 25,
-      current: bets,
-      unlocked: bets >= 25,
+      current: realStats.totalBets,
+      unlocked: realStats.totalBets >= 25,
       icon: '⚔️',
     },
     {
@@ -71,24 +69,21 @@ export async function GET(req: Request) {
       title: 'Miden Legend',
       desc: 'Placed 50 predictions on Miden zkVM',
       target: 50,
-      current: bets,
-      unlocked: bets >= 50,
+      current: realStats.totalBets,
+      unlocked: realStats.totalBets >= 50,
       icon: '👑',
     },
   ];
 
   return new NextResponse(
     JSON.stringify({
-      stats: userStats,
+      stats: realStats,
       badges,
       history,
     }),
     {
       status: 200,
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Cache-Control': 'no-store, max-age=0' },
     }
   );
 }
