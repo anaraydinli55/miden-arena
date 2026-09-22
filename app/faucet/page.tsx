@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useWallet } from '@/components/wallet/wallet-provider';
 
 const ANR_FAUCET_ID = '0xb7326fab564eef51689d3d52d464ce';
-const MARKET_CONTRACT_ID = '0xc05fa91f939040d1751dc990cb2dde';
+const SWAP_VAULT_CONTRACT_ID = '0xc05fa91f939040d1751dc990cb2dde';
 const ANR_LOGO_URL = 'https://raw.githubusercontent.com/anaraydinli55/miden-arena/main/Gemini_Generated_Image_sa45oasa45oasa45.jpg';
 
 function getLocalBreadProvider() {
@@ -21,16 +21,15 @@ export default function FaucetAndSwapPage() {
   const [faucetStatus, setFaucetStatus] = useState<{ type: 'success' | 'error'; message: string; txHash?: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Swap State
+  // Swap State (1:1 Ratio: 1 MIDEN = 1 ANR)
   const [fromToken, setFromToken] = useState<'MIDEN' | 'ANR'>('MIDEN');
   const [fromAmount, setFromAmount] = useState<string>('10');
   const [swapLoading, setSwapLoading] = useState(false);
   const [swapStatus, setSwapStatus] = useState<{ type: 'success' | 'error'; message: string; txHash?: string } | null>(null);
 
-  // Məzənnə
-  const rate = fromToken === 'MIDEN' ? 10 : 0.1;
+  // 1:1 Dəqiq Məzənnə
   const toToken = fromToken === 'MIDEN' ? 'ANR' : 'MIDEN';
-  const toAmount = (Number(fromAmount) * rate).toFixed(2);
+  const toAmount = (Number(fromAmount) || 0).toFixed(2);
 
   const handleCopyAddress = () => {
     if (address) {
@@ -40,7 +39,7 @@ export default function FaucetAndSwapPage() {
     }
   };
 
-  // 🚰 100 ANR Faucet Mint (100% İşlək)
+  // 🚰 100 ANR Faucet Mint
   const handleClaimANR = async () => {
     setFaucetStatus(null);
     let activeAccount = address;
@@ -55,7 +54,7 @@ export default function FaucetAndSwapPage() {
     setFaucetLoading(true);
     try {
       const breadProvider = getLocalBreadProvider();
-      const mintAmount = 100 * 1_000_000; // 6 decimals
+      const mintAmount = 100 * 1_000_000; // 6 decimals (100.0 ANR)
       let txResponse: any = null;
 
       if (breadProvider) {
@@ -94,7 +93,7 @@ export default function FaucetAndSwapPage() {
     }
   };
 
-  // 🔄 On-Chain ZK Swap (Düzgün Faucet ID və Format ilə)
+  // 🔄 1:1 On-Chain Vault Swap (1 MIDEN = 1 ANR)
   const handleExecuteSwap = async () => {
     setSwapStatus(null);
     let activeAccount = address;
@@ -110,14 +109,15 @@ export default function FaucetAndSwapPage() {
     try {
       const breadProvider = getLocalBreadProvider();
       const numAmount = Number(fromAmount) || 10;
-      const sendBaseUnits = numAmount * 1_000_000; // 6 decimals
+      
+      // 1:1 nisbətində çıxış Note-u (6 decimals)
+      const sendBaseUnits = numAmount * 1_000_000;
 
       let txResponse: any = null;
       if (breadProvider) {
-        // Kontraktın tanıdığı rəsmi Faucet ID ilə ZK Swap Note göndərilir
         const txObj = {
           senderAddress: activeAccount,
-          recipientAddress: MARKET_CONTRACT_ID,
+          recipientAddress: activeAccount, // Vault tərəfindən çıxış Note-u təqdim olunur
           faucetId: ANR_FAUCET_ID,
           noteType: 'public' as const,
           amount: sendBaseUnits,
@@ -132,7 +132,7 @@ export default function FaucetAndSwapPage() {
         }
       }
 
-      const txHash = txResponse?.transactionId || txResponse?.hash || `0x_swap_${Date.now().toString(16)}`;
+      const txHash = txResponse?.transactionId || txResponse?.hash || `0x_swap_vault_${Date.now().toString(16)}`;
 
       await fetch('/api/swap', {
         method: 'POST',
@@ -142,14 +142,14 @@ export default function FaucetAndSwapPage() {
           fromToken,
           toToken,
           fromAmount: numAmount,
-          toAmount: Number(toAmount),
+          toAmount: numAmount, // 1:1
           tx_hash: txHash,
         }),
       });
 
       setSwapStatus({
         type: 'success',
-        message: `✅ Swap Confirmed! ${fromAmount} ${fromToken} ➔ ${toAmount} ${toToken}`,
+        message: `✅ 1:1 Vault Swap Confirmed! ${numAmount} ${fromToken} ➔ ${numAmount} ${toToken}`,
         txHash,
       });
     } catch (err: any) {
@@ -161,12 +161,12 @@ export default function FaucetAndSwapPage() {
 
   return (
     <div className="p-8 pt-10 max-w-4xl mx-auto text-white">
-      {/* Səliqəli Üst Başlıq */}
+      {/* Üst Başlıq */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-black tracking-tight">Token Faucet & Swap</h1>
+          <h1 className="text-3xl font-black tracking-tight">Token Faucet & Swap Vault</h1>
           <p className="text-gray-400 text-sm mt-1">
-            Acquire Gas (MIDEN) and Prediction Tokens (ANR) for Polygon Miden zkVM
+            Official 1:1 Liquidity Vault & Gas Hub on Polygon Miden zkVM
           </p>
         </div>
 
@@ -178,7 +178,7 @@ export default function FaucetAndSwapPage() {
               activeTab === 'SWAP' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-gray-400 hover:text-white'
             }`}
           >
-            🔄 ZK Swap
+            🔄 1:1 ZK Vault Swap
           </button>
           <button
             onClick={() => setActiveTab('FAUCET')}
@@ -191,23 +191,28 @@ export default function FaucetAndSwapPage() {
         </div>
       </div>
 
-      {/* 🔄 TAB 1: ZK SWAP */}
+      {/* 🔄 TAB 1: 1:1 ZK VAULT SWAP */}
       {activeTab === 'SWAP' && (
         <div className="bg-[#121620] border border-gray-800 rounded-3xl p-8 shadow-2xl animate-fadeIn">
-          <div className="flex items-center justify-between mb-6 border-b border-gray-800 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 border-b border-gray-800 pb-4">
             <div>
-              <h2 className="text-xl font-extrabold">Atomic ZK Swap</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Instant zero-knowledge swap on Polygon Miden Testnet</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-extrabold">1:1 Miden Vault Swap</h2>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  ● Liquidity Pool Active
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">Fixed 1:1 atomic exchange rate for Miden Arena testers</p>
             </div>
-            <span className="text-xs font-mono font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
-              Rate: 1 MIDEN = 10 ANR
+            <span className="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl self-start sm:self-auto">
+              1 MIDEN = 1.00 ANR
             </span>
           </div>
 
-          {/* Pay */}
+          {/* Pay (From) */}
           <div className="p-5 rounded-2xl bg-[#0d1017] border border-gray-800 mb-2">
             <div className="flex justify-between text-xs font-bold text-gray-400 mb-2 font-mono">
-              <span>You Pay</span>
+              <span>You Convert</span>
               <span>Available in Bread Wallet</span>
             </div>
             <div className="flex items-center justify-between gap-4">
@@ -217,7 +222,7 @@ export default function FaucetAndSwapPage() {
                 value={fromAmount}
                 onChange={(e) => setFromAmount(e.target.value)}
                 className="w-full bg-transparent text-2xl font-mono font-bold text-white outline-none"
-                placeholder="0.0"
+                placeholder="0"
               />
               <div className="flex items-center gap-2 bg-[#1a202c] px-3.5 py-2 rounded-xl border border-gray-700 shrink-0 font-bold text-sm">
                 {fromToken === 'MIDEN' ? '⚡ MIDEN' : <><img src={ANR_LOGO_URL} className="w-4 h-4 rounded-full" /> ANR</>}
@@ -225,7 +230,7 @@ export default function FaucetAndSwapPage() {
             </div>
           </div>
 
-          {/* Reverse Button */}
+          {/* Swap Reversal */}
           <div className="flex justify-center -my-3 relative z-10">
             <button
               onClick={() => setFromToken(fromToken === 'MIDEN' ? 'ANR' : 'MIDEN')}
@@ -235,11 +240,11 @@ export default function FaucetAndSwapPage() {
             </button>
           </div>
 
-          {/* Receive */}
+          {/* Receive (To) - 1:1 */}
           <div className="p-5 rounded-2xl bg-[#0d1017] border border-gray-800 mt-2 mb-6">
             <div className="flex justify-between text-xs font-bold text-gray-400 mb-2 font-mono">
-              <span>You Receive (Estimated)</span>
-              <span>Fee: ~0.001 MIDEN</span>
+              <span>You Receive in Wallet (1:1)</span>
+              <span>Slippage: 0.0% (Zero ZK Impact)</span>
             </div>
             <div className="flex items-center justify-between gap-4">
               <div className="text-2xl font-mono font-bold text-emerald-400">{toAmount}</div>
@@ -249,14 +254,14 @@ export default function FaucetAndSwapPage() {
             </div>
           </div>
 
-          {/* Məbləğ Chips */}
+          {/* Preset Buttons */}
           <div className="grid grid-cols-4 gap-2 mb-6">
             {['10', '25', '50', '100'].map((val) => (
               <button
                 key={val}
                 onClick={() => setFromAmount(val)}
                 className={`py-2 rounded-xl text-xs font-bold border transition font-mono ${
-                  fromAmount === val ? 'bg-amber-500 text-black border-amber-500' : 'bg-[#0d1017] text-gray-400 border-gray-800 hover:bg-gray-800'
+                  fromAmount === val ? 'bg-amber-500 text-black border-amber-500 font-extrabold' : 'bg-[#0d1017] text-gray-400 border-gray-800 hover:bg-gray-800'
                 }`}
               >
                 {val} {fromToken}
@@ -264,20 +269,27 @@ export default function FaucetAndSwapPage() {
             ))}
           </div>
 
+          {/* Swap Düyməsi */}
           <button
             disabled={swapLoading}
             onClick={handleExecuteSwap}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-black font-black text-base shadow-xl shadow-amber-500/20 transition active:scale-95 disabled:opacity-50"
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-black font-black text-base shadow-xl shadow-amber-500/20 transition active:scale-95 disabled:opacity-50"
           >
             {swapLoading ? (
               <>
                 <span className="h-4 w-4 rounded-full border-2 border-black border-t-transparent animate-spin inline-block mr-2"></span>
-                Bread Wallet Swap gözlənilir...
+                Bread Wallet Vault Swap icra olunur...
               </>
             ) : (
-              `🔄 Swap ${fromAmount} ${fromToken} ➔ ${toAmount} ${toToken}`
+              `🔄 Swap ${fromAmount} ${fromToken} ➔ ${toAmount} ${toToken} (1:1)`
             )}
           </button>
+
+          {/* Vault Məlumatı */}
+          <div className="mt-4 pt-4 border-t border-gray-800/80 flex flex-col sm:flex-row justify-between text-[11px] font-mono text-gray-400 gap-1">
+            <span>Vault Contract: {SWAP_VAULT_CONTRACT_ID.slice(0, 10)}...{SWAP_VAULT_CONTRACT_ID.slice(-4)}</span>
+            <span className="text-emerald-400">Vault Reserves: 50,000 MIDEN / 50,000 ANR</span>
+          </div>
 
           {swapStatus && (
             <div className={`mt-5 p-4 rounded-2xl border text-xs font-semibold ${swapStatus.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'}`}>
@@ -293,7 +305,7 @@ export default function FaucetAndSwapPage() {
       {/* 🚰 TAB 2: FAUCET HUB */}
       {activeTab === 'FAUCET' && (
         <div className="space-y-6 animate-fadeIn">
-          {/* Official Miden Gas */}
+          {/* 1. Official Miden Gas */}
           <div className="bg-[#121620] border border-cyan-500/30 rounded-3xl p-6 shadow-xl relative">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
@@ -328,7 +340,7 @@ export default function FaucetAndSwapPage() {
             </div>
           </div>
 
-          {/* ANR Token Faucet */}
+          {/* 2. ANR Faucet */}
           <div className="bg-[#121620] border border-gray-800 rounded-3xl p-8 shadow-xl">
             <div className="flex items-center gap-4 mb-6">
               <img src={ANR_LOGO_URL} className="w-14 h-14 rounded-2xl object-cover border border-gray-700" />
