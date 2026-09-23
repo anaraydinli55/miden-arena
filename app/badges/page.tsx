@@ -10,7 +10,9 @@ export default function BadgesPage() {
     fetch(`/api/user-stats?t=${Date.now()}`, { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
-        if (data.badges) setBadges(data.badges);
+        if (data && data.badges && data.badges.length > 0) {
+          setBadges(data.badges);
+        }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -23,10 +25,10 @@ export default function BadgesPage() {
   }, []);
 
   return (
-    <div className="p-8 max-w-6xl mx-auto text-white">
+    <div className="p-8 pt-10 max-w-7xl mx-auto text-white">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Achievements & Badges</h1>
-        <p className="text-gray-400 mt-1">Unlock milestone badges by submitting predictions on Polygon Miden zkVM</p>
+        <h1 className="text-3xl font-black tracking-tight">Achievements & Badges</h1>
+        <p className="text-gray-400 text-sm mt-1">Unlock milestone badges by submitting predictions on Polygon Miden zkVM</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -36,15 +38,15 @@ export default function BadgesPage() {
           return (
             <div
               key={badge.id}
-              className={`border rounded-xl p-6 flex flex-col justify-between transition-all ${
+              className={`border rounded-2xl p-6 flex flex-col justify-between transition-all ${
                 badge.unlocked
-                  ? 'bg-[#0f1319] border-indigo-500/50 shadow-lg shadow-indigo-500/10'
-                  : 'bg-[#0b0e14] border-gray-800/60 opacity-60'
+                  ? 'bg-[#121620] border-emerald-500/40 shadow-xl shadow-emerald-500/10'
+                  : 'bg-[#0d1017] border-gray-800/80 opacity-60'
               }`}
             >
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <div className="text-2xl p-2 rounded-xl bg-gray-800/50">
+                  <div className="text-3xl p-2.5 rounded-2xl bg-[#1a202c] border border-gray-800">
                     {badge.icon}
                   </div>
                   <span
@@ -58,22 +60,22 @@ export default function BadgesPage() {
                   </span>
                 </div>
 
-                <h3 className="font-bold text-lg text-white">{badge.title}</h3>
-                <p className="text-gray-400 text-xs mt-1 leading-relaxed">{badge.desc}</p>
+                <h3 className="font-extrabold text-lg text-white">{badge.title}</h3>
+                <p className="text-gray-400 text-xs mt-1.5 leading-relaxed">{badge.desc}</p>
               </div>
 
               {/* Progress Bar */}
-              <div className="mt-6">
+              <div className="mt-6 pt-4 border-t border-gray-800/50">
                 <div className="flex justify-between text-xs text-gray-400 mb-1.5 font-mono">
                   <span>Progress</span>
                   <span className={badge.unlocked ? 'text-emerald-400 font-bold' : 'text-gray-300'}>
                     {badge.current} / {badge.target} txs
                   </span>
                 </div>
-                <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
                   <div
                     className={`h-full transition-all duration-500 rounded-full ${
-                      badge.unlocked ? 'bg-emerald-500' : 'bg-indigo-500'
+                      badge.unlocked ? 'bg-emerald-500' : 'bg-amber-500'
                     }`}
                     style={{ width: `${progressPercent}%` }}
                   ></div>
