@@ -10,3 +10,4 @@ keystore/
 *.sqlite3*
 .vercel
 .env*
+.env.local
