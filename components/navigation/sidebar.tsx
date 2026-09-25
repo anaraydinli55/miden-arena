@@ -46,9 +46,7 @@ export default function Sidebar() {
             <Menu className="w-5 h-5" />
           </button>
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-yellow-500 to-amber-300 flex items-center justify-center font-black text-black text-xs shadow-md">
-              M
-            </div>
+            <img src="/miden-arena.png" alt="Miden Arena Logo" className="w-8 h-8 rounded-lg object-contain shadow-sm" />
             <span className="font-black text-sm tracking-wide text-white uppercase">Miden Arena</span>
           </Link>
         </div>
@@ -80,9 +78,7 @@ export default function Sidebar() {
         <div>
           <div className="h-16 px-6 flex items-center justify-between border-b border-gray-800/60">
             <Link href="/" className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-yellow-500 to-amber-300 flex items-center justify-center font-black text-black text-sm shadow-lg shadow-yellow-500/20">
-                M
-              </div>
+              <img src="/miden-arena.png" alt="Miden Arena Logo" className="w-9 h-9 rounded-xl object-contain shadow-md shadow-yellow-500/10" />
               <div>
                 <h1 className="font-black text-sm tracking-wider text-white uppercase">Miden</h1>
                 <p className="text-[10px] font-bold text-yellow-400 tracking-widest uppercase">Arena zkVM</p>
