@@ -20,7 +20,7 @@ export default function RootLayout({
           <Sidebar />
 
           {/* Sağ Əsas Məzmun Sahəsi */}
-          <main className="flex-1 min-w-0 min-h-screen overflow-y-auto bg-[#0b0e14]">
+          <main className="flex-1 min-w-0 min-h-screen overflow-y-auto bg-[#0b0e14] pt-16 md:pt-0 min-h-screen">
             {children}
           </main>
         </WalletProvider>

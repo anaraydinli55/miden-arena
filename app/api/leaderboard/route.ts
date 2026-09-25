@@ -4,48 +4,41 @@ import { redis } from '@/lib/redis';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const topMembers = await redis.zrange('leaderboard:xp', 0, 19, {
-      rev: true,
-      withScores: true,
-    });
+    const { searchParams } = new URL(req.url);
+    const userAddress = searchParams.get('address');
 
-    const leaderboard = [];
-    const seen = new Set();
+    // Upstash Redis-dən real istifadəçi sıralamasını çəkirik
+    const rawLeaderboard: any = await redis.get('arena:global:leaderboard') || [];
+    
+    let users = Array.isArray(rawLeaderboard) ? rawLeaderboard : [];
 
-    for (let i = 0; i < topMembers.length; i += 2) {
-      let rawWallet = topMembers[i] as string;
-      const score = Number(topMembers[i + 1]);
-
-      if (seen.has(rawWallet)) continue;
-      seen.add(rawWallet);
-
-      const details: any = (await redis.get(`user:${rawWallet}`)) || {};
-      const bets = Number(details.totalBets) || Math.round(score / 100) || 1;
-      const volume = Number(details.totalVolume) || bets * 10;
-      const xp = Number(details.xp) || score || bets * 100;
-
-      let displayWallet = rawWallet;
-      if (rawWallet.length > 20) {
-        displayWallet = `${rawWallet.slice(0, 10)}...${rawWallet.slice(-6)}`;
-      }
-
-      leaderboard.push({
-        rank: leaderboard.length + 1,
-        wallet: displayWallet,
-        rawWallet: rawWallet,
-        totalBets: bets,
-        volume: volume,
-        xp: xp,
+    // Əgər istifadəçi cüzdanını qoşubsa və hələ siyahıda yoxdursa, onu 0 xalla daxil edirik
+    if (userAddress && !users.some((u: any) => u.address.toLowerCase() === userAddress.toLowerCase())) {
+      users.push({
+        address: userAddress,
+        predictionsCount: 0,
+        volume: '0 ELA',
+        xp: 0,
       });
     }
 
-    return new NextResponse(JSON.stringify(leaderboard), {
-      status: 200,
-      headers: { 'Cache-Control': 'no-store, max-age=0' },
+    // XP xalına görə ən yüksəkdən aza doğru real sıralayırıq
+    users.sort((a: any, b: any) => b.xp - a.xp);
+
+    // Sıralama nömrələrini (Rank) təyin edirik
+    const rankedUsers = users.map((u: any, index: number) => ({
+      ...u,
+      rank: index + 1,
+    }));
+
+    return NextResponse.json({
+      success: true,
+      users: rankedUsers,
+      totalUsers: rankedUsers.length,
     });
   } catch (error) {
-    return NextResponse.json([], { status: 500 });
+    return NextResponse.json({ success: true, users: [], totalUsers: 0 });
   }
 }
