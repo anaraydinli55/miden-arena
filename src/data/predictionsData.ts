@@ -14,7 +14,7 @@ export interface PredictionItem {
   isBoosted: boolean;
   endDate: string; // ISO Format (Real Tarix)
   tokenSymbol: 'ELA' | 'ANR';
-  totalVolume: number; // 0 ELA / 0 ANR (Mock rəqəm YOXDUR)
+  totalVolume: 0; // 0 ELA / 0 ANR (Mock rəqəm YOXDUR)
   outcomes: OutcomeOption[];
   image: string;
   description: string;
@@ -33,7 +33,7 @@ export const getTimeRemaining = (endDateStr: string): string => {
 };
 
 // Faizləri real hovuz miqdarına görə dinamik hesablayır (Başlanğıcda 50/50 neytral)
-export const calculateProbability = (outcomes: OutcomeOption[], totalVolume: number): number => {
+export const calculateProbability = (outcomes: OutcomeOption[], totalVolume: 0): number => {
   if (totalVolume === 0 || outcomes.length < 2) return 50;
   return Math.round((outcomes[0].poolAmount / totalVolume) * 100);
 };

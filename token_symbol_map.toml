@@ -1,0 +1,11 @@
+[MIDEN]
+address = "mtst1aqvpq8a9ytqhfvt9al20wzsrs56g83ec_qr7qqq9wr6w"
+decimals = 6
+
+[IUSDT]
+address = "mtst1arvdwvzllvg3s5fzjle7nkljeuhkcufr_qr7qqq9wr6w"
+decimals = 8
+
+[IETH]
+address = "mtst1arcf9xpxfrc7wygpv744ytgr6cw2df6h_qr7qqq9wr6w"
+decimals = 8
