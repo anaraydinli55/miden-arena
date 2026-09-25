@@ -11,7 +11,7 @@ export const OFFICIAL_MARKETS: MarketMeta[] = [
   {
     id: 'miden-mainnet-q4',
     category: 'Miden ZK',
-    title: 'Will Polygon Miden Mainnet launch before Q4 2026 ends?',
+    title: 'Will Miden Mainnet launch before Q4 2026 ends?',
     icon: '⚡',
     tokenSymbol: 'ANR',
     expiresAt: new Date('2026-12-31T23:59:59Z').getTime(),
@@ -75,7 +75,7 @@ export const OFFICIAL_MARKETS: MarketMeta[] = [
   {
     id: 'usdc-miden-native',
     category: 'Miden ZK',
-    title: 'Will Native USDC deploy directly on Polygon Miden zkVM?',
+    title: 'Will Native USDC deploy directly on Miden zkVM?',
     icon: '💵',
     tokenSymbol: 'ANR',
     expiresAt: new Date('2026-12-20T23:59:59Z').getTime(),

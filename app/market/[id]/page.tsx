@@ -13,7 +13,7 @@ export default function MarketDetailPage() {
               Will Miden mainnet launch before Q2 2027?
             </h1>
             <p className="text-xs text-white/50">
-              Prediction market on Polygon Miden Testnet with ZK STARK rollups and private notes.
+              Prediction market on Miden Testnet with ZK STARK rollups and private notes.
             </p>
           </div>
         </div>

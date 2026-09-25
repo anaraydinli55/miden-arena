@@ -28,7 +28,7 @@ export default function BadgesPage() {
     <div className="p-8 pt-10 max-w-7xl mx-auto text-white">
       <div className="mb-8">
         <h1 className="text-3xl font-black tracking-tight">Achievements & Badges</h1>
-        <p className="text-gray-400 text-sm mt-1">Unlock milestone badges by submitting predictions on Polygon Miden zkVM</p>
+        <p className="text-gray-400 text-sm mt-1">Unlock milestone badges by submitting predictions on Miden zkVM</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

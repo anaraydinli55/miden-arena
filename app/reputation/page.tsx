@@ -40,7 +40,7 @@ export default function ReputationPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-black tracking-tight">Wallet Reputation & Activity</h1>
-          <p className="text-gray-400 text-sm mt-1">Cross-device on-chain activity synced globally via Polygon Miden</p>
+          <p className="text-gray-400 text-sm mt-1">Cross-device on-chain activity synced globally via Miden</p>
         </div>
         <button
           onClick={loadData}

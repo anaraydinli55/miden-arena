@@ -206,7 +206,7 @@ export default function MarketsPage() {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">On-Chain Markets</h1>
           <p className="text-gray-400 text-sm mt-1">
-            Zero-Knowledge prediction markets on Polygon Miden Testnet (Bread ZK)
+            Zero-Knowledge prediction markets on Miden Testnet (Bread ZK)
           </p>
         </div>
         <div className="flex items-center gap-3">

@@ -4,7 +4,7 @@ import { WalletProvider } from '@/components/wallet/wallet-provider';
 
 export const metadata = {
   title: 'Miden Arena | ZK Prediction Markets',
-  description: 'Zero-Knowledge prediction markets on Polygon Miden Testnet',
+  description: 'Zero-Knowledge prediction markets on Miden Testnet',
 };
 
 export default function RootLayout({

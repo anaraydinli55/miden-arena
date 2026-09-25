@@ -166,7 +166,7 @@ export default function FaucetAndSwapPage() {
         <div>
           <h1 className="text-3xl font-black tracking-tight">Token Faucet & Swap Vault</h1>
           <p className="text-gray-400 text-sm mt-1">
-            Official 1:1 Liquidity Vault & Gas Hub on Polygon Miden zkVM
+            Official 1:1 Liquidity Vault & Gas Hub on Miden zkVM
           </p>
         </div>
 
@@ -315,7 +315,7 @@ export default function FaucetAndSwapPage() {
                   </span>
                   <span className="text-xs font-mono text-gray-400">1000 MIDEN</span>
                 </div>
-                <h3 className="text-lg font-black text-white">Official Polygon Miden Gas Faucet</h3>
+                <h3 className="text-lg font-black text-white">Official Miden Gas Faucet</h3>
                 <p className="text-xs text-gray-400 mt-1">
                   Claim testnet gas tokens from the official Miden network faucet to pay for zk-proof tx fees.
                 </p>

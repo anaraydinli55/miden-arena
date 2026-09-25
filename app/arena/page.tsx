@@ -2,7 +2,7 @@ import { PredictionPanel } from '@/components/arena/prediction-panel';
 
 export const metadata = {
   title: 'Miden Arena | ZK Prediction Hub',
-  description: 'Zero-Knowledge prediction markets on Polygon Miden Testnet',
+  description: 'Zero-Knowledge prediction markets on Miden Testnet',
 };
 
 export default function ArenaPage() {
