@@ -8,7 +8,6 @@ function getLocalBreadProvider() {
   return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
 }
 
-// Dünənki şəkildə təsdiqlənmiş real ANR Faucet ID-si
 const ANR_FAUCET_ID = "mtst1ap8thrsn8ta805gkqq5g4c227cqjen58_qr7qqq9wr6w";
 const ELA_FAUCET_ID = "mtst1ap8thrsn8ta805gkqq5g4c227cqjen58_qr7qqq9wr6w";
 
@@ -38,7 +37,6 @@ export default function FaucetPage() {
 
       setStatus({ type: "info", message: `⏳ ${symbol} Faucet serverindən 100 token tələb olunur...` });
 
-      // Server Faucet API vasitəsilə birbaşa cüzdana real Note mint/claim göndəririk
       const res = await fetch("/api/faucet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -50,17 +48,23 @@ export default function FaucetPage() {
         }),
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch (e) {
+        throw new Error(`Server cavabı oxunmadı (${res.status}): ${rawText.slice(0, 100)}`);
+      }
 
       if (!res.ok || data.error) {
-        throw new Error(data.error || "Faucet serverindən cavab alınmadı.");
+        throw new Error(data.error || "Faucet serverindən xəta baş verdi.");
       }
 
       const txHash = data.txHash || data.transactionId || null;
 
       setStatus({
         type: "success",
-        message: `🎉 100 ${symbol} uğurla cüzdanınıza göndərildi! Bread Wallet-də bir neçə saniyəyə '100 ${symbol} ➔ Accepted' kimi görünəcək.`,
+        message: `🎉 100 ${symbol} uğurla claim olundu! Bread Wallet Activity bölməsində '100 ${symbol} ➔ Accepted' kimi qeydə alındı.`,
         txHash: txHash || undefined,
       });
     } catch (err: any) {
