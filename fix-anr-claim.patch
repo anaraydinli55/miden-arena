@@ -1,0 +1,23 @@
+--- a/app/faucet/page.tsx
++++ b/app/faucet/page.tsx
+@@ -60,9 +60,16 @@
+         if (typeof breadProvider.requestSend === 'function') {
+           txResponse = await breadProvider.requestSend(txObj);
+         } else if (typeof breadProvider.requestSendTransaction === 'function') {
+           txResponse = await breadProvider.requestSendTransaction(txObj);
++        } else if (typeof breadProvider.sendTransaction === 'function') {
++          txResponse = await breadProvider.sendTransaction(txObj);
++        } else {
++          throw new Error('Bread Wallet-də uyğun mint metodu tapılmadı (requestSend/requestSendTransaction/sendTransaction)');
+         }
++      } else {
++        throw new Error('Bread Wallet provider tapılmadı — extension quraşdırılıb və qoşulub?');
+       }
+
+-      const txHash = txResponse?.transactionId || txResponse?.hash || `0x_faucet_${Date.now().toString(16)}`;
++      const txHash = txResponse?.transactionId || txResponse?.hash;
++      if (!txHash) {
++        throw new Error('Cüzdandan real tranzaksiya hash-i qaytarılmadı — mint uğursuz oldu');
++      }
+       
+       await fetch('/api/faucet', {
