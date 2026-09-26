@@ -8,8 +8,8 @@ function getLocalBreadProvider() {
   return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
 }
 
-const ANR_FAUCET_ID = "mtst1ap8thrsn8ta805gkqq5g4c227cqjen58_qr7qqq9wr6w";
-const ELA_FAUCET_ID = "mtst1ap8thrsn8ta805gkqq5g4c227cqjen58_qr7qqq9wr6w";
+const ANR_FAUCET_ID = "0x7e1d75334832f85106a9cd4757abb0";
+const ELA_FAUCET_ID = "0x7e1d75334832f85106a9cd4757abb0";
 
 function extractTxHash(response: any): string | null {
   if (!response) return null;
