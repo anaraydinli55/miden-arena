@@ -3,13 +3,8 @@
 import { useState } from "react";
 import { useWallet } from "@/components/wallet/wallet-provider";
 
-function getLocalBreadProvider() {
-  if (typeof window === "undefined") return null;
-  return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
-}
-
 const ANR_FAUCET_ID = "mtst1ap8thrsn8ta805gkqq5g4c227cqjen58_qr7qqq9wr6w";
-const ELA_FAUCET_ID = "mtst1ap8thrsn8ta805gkqq5g4c227cqjen58_qr7qqq9wr6w";
+const ELA_FAUCET_ID = "mtst1aqejw49mjj6ttvg44jkmhpzv3sxs5wq0_qr7qqq9wr6w";
 
 export default function FaucetPage() {
   const { address, connect } = useWallet();
@@ -22,12 +17,6 @@ export default function FaucetPage() {
 
     try {
       let activeAccount = address;
-      const breadProvider = getLocalBreadProvider();
-
-      if (!activeAccount && breadProvider && typeof breadProvider.connect === "function") {
-        const res = await breadProvider.connect().catch(() => null);
-        activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
-      }
       if (!activeAccount) {
         activeAccount = await connect();
       }
@@ -59,7 +48,7 @@ export default function FaucetPage() {
 
       setStatus({
         type: "success",
-        message: `🎉 100 ${symbol} uğurla claim olundu! Bread Wallet Activity bölməsində '100 ${symbol} ➔ Accepted' kimi qeydə alındı.`,
+        message: `🎉 100 ${symbol} uğurla claim olundu! Faucet: ${targetFaucet.slice(0, 16)}...`,
         txHash: txHash,
       });
     } catch (err: any) {
@@ -78,18 +67,18 @@ export default function FaucetPage() {
         </span>
         <h1 className="text-2xl font-bold text-white">Miden Arena Testnet Token Faucet</h1>
         <p className="text-xs text-white/60 leading-relaxed">
-          Testnet proqnoz bazarlarında iştirak etmək üçün test tokenlərini birbaşa cüzdanınıza claim edə bilərsiniz.
+          Testnet proqnoz bazarlarında iştirak etmək üçün test tokenlərini birbaşa cüzdanınıza claim edin.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* ANR Token Claim */}
+        {/* ANR Token Kartı */}
         <div className="card rounded-2xl border border-white/10 bg-black/40 p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="font-bold text-white text-base">🪙 ANR Token</div>
             <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full">Primary Token</span>
           </div>
-          <p className="text-xs text-white/50">Miden Arena proqnozlarında əsas mərc aktivi kimi istifadə olunur.</p>
+          <p className="text-xs text-white/50 font-mono">Faucet: {ANR_FAUCET_ID.slice(0, 16)}...</p>
           <button
             onClick={() => handleClaimToken("ANR")}
             disabled={loadingToken !== null}
@@ -99,13 +88,13 @@ export default function FaucetPage() {
           </button>
         </div>
 
-        {/* ELA Token Claim */}
+        {/* ELA Token Kartı */}
         <div className="card rounded-2xl border border-white/10 bg-black/40 p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="font-bold text-white text-base">💎 ELA Token</div>
             <span className="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full">Ecosystem Token</span>
           </div>
-          <p className="text-xs text-white/50">Miden Arena ekosistem bazarlarında likvidlik və proqnoz üçün istifadə olunur.</p>
+          <p className="text-xs text-white/50 font-mono">Faucet: {ELA_FAUCET_ID.slice(0, 16)}...</p>
           <button
             onClick={() => handleClaimToken("ELA")}
             disabled={loadingToken !== null}
@@ -127,19 +116,6 @@ export default function FaucetPage() {
           }`}
         >
           <div className="font-medium">{status.message}</div>
-          {status.txHash && status.txHash.startsWith("0x") && (
-            <div className="pt-1 text-[11px] font-mono">
-              Tx Hash:{" "}
-              <a
-                href={`https://testnet.midenscan.com/tx/${status.txHash}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-cyan-300 underline hover:text-cyan-200"
-              >
-                {status.txHash} ↗
-              </a>
-            </div>
-          )}
         </div>
       )}
     </div>
