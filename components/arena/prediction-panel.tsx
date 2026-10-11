@@ -2,37 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useWallet } from "@/components/wallet/wallet-provider";
+import { sendViaBread } from "@/lib/miden/bread";
+import { BET_TOKENS, ESCROW_ACCOUNT_ID } from "@/lib/miden/tokens";
 
 function getLocalBreadProvider() {
   if (typeof window === "undefined") return null;
   return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
 }
 
-// Zəncirdə təsdiqlənmiş real Faucet ID-ləri
-const TOKEN_FAUCETS = {
-  SKS: "mtst1ap8thrsn8ta805gkqq5g4c227cqjen58_qr7qqq9wr6w",
-  ANR: "mtst1ap8thrsn8ta805gkqq5g4c227cqjen58_qr7qqq9wr6w",
-  ELA: "mtst1aqejw49mjj6ttvg44jkmhpzv3sxs5wq0_qr7qqq9wr6w",
-};
-
-const MARKET_CONTRACT_ID = "0xc05fa91f939040d1751dc990cb2dde";
-const DECIMALS_MULTIPLIER = 1_000_000; // 6 Decimals (1 Token = 1,000,000 base units)
-
-function extractVerifiedOnChainTxHash(response: any): string | null {
-  if (!response) return null;
-  if (typeof response === "string" && response.startsWith("0x") && response.length >= 32) return response;
-
-  if (typeof response === "object") {
-    if (typeof response.transactionHash === "string" && response.transactionHash.startsWith("0x")) return response.transactionHash;
-    if (typeof response.transactionId === "string" && response.transactionId.startsWith("0x")) return response.transactionId;
-    if (typeof response.txId === "string" && response.txId.startsWith("0x")) return response.txId;
-    if (typeof response.hash === "string" && response.hash.startsWith("0x")) return response.hash;
-    if (typeof response.id === "string" && response.id.startsWith("0x")) return response.id;
-    if (response.result) return extractVerifiedOnChainTxHash(response.result);
-    if (response.transaction) return extractVerifiedOnChainTxHash(response.transaction);
-  }
-  return null;
-}
+// Escrow hesabi ve faucet ID-leri lib/miden/tokens.ts-den gelir (env ile konfiqurasiya)
+const MARKET_CONTRACT_ID = ESCROW_ACCOUNT_ID || "not-configured";
+const DECIMALS_MULTIPLIER = 1_000_000; // 6 decimals
 
 export function PredictionPanel() {
   const { connected, address, connect } = useWallet();
@@ -109,69 +89,44 @@ export function PredictionPanel() {
         throw new Error("Bread Wallet bağlantısı təsdiqlənmədi.");
       }
 
-      const inputUnits = Number(amount) || 10;
-      const rawAtomicAmount = Math.round(inputUnits * DECIMALS_MULTIPLIER);
-      const targetFaucet = TOKEN_FAUCETS[selectedToken];
+      const inputUnits = Number(amount);
+      if (!Number.isFinite(inputUnits) || inputUnits <= 0) {
+        throw new Error("Məbləğ düzgün deyil.");
+      }
+      if (!ESCROW_ACCOUNT_ID) {
+        throw new Error("Bahis qəbulu hələ aktiv deyil: escrow hesabı konfiqurasiya olunmayıb.");
+      }
+      const targetFaucet = BET_TOKENS[selectedToken];
+      if (!targetFaucet) {
+        throw new Error(`${selectedToken} faucet ID-si konfiqurasiya olunmayıb.`);
+      }
 
-      const txObj = {
+      const confirmedTx = await sendViaBread({
         senderAddress: activeAccount,
-        recipientAddress: MARKET_CONTRACT_ID,
+        recipientAddress: ESCROW_ACCOUNT_ID,
         faucetId: targetFaucet,
-        noteType: "public" as const,
-        amount: rawAtomicAmount,
-      };
+        amount: Math.round(inputUnits * DECIMALS_MULTIPLIER),
+      });
 
-      console.log(`Submitting ${inputUnits} ${selectedToken} (${targetFaucet}) to Bread Wallet:`, txObj);
-
-      let txResponse: any = null;
-
-      if (typeof breadProvider.requestSend === "function") {
-        txResponse = await breadProvider.requestSend(txObj);
-      } else if (typeof breadProvider.requestSendTransaction === "function") {
-        txResponse = await breadProvider.requestSendTransaction(txObj);
-      } else if (typeof breadProvider.sendTransaction === "function") {
-        txResponse = await breadProvider.sendTransaction(txObj);
-      } else if (typeof breadProvider.request === "function") {
-        txResponse = await breadProvider.request({
-          method: "miden_sendTransaction",
-          params: [txObj],
-        });
-      }
-
-      console.log("Bread Wallet response:", txResponse);
-
-      if (
-        txResponse &&
-        typeof txResponse === "object" &&
-        (txResponse.error ||
-          txResponse.success === false ||
-          (typeof txResponse.status === "string" &&
-            /fail|error|reject/i.test(txResponse.status)))
-      ) {
-        throw new Error(
-          txResponse.error?.message ||
-            txResponse.error ||
-            `Bread Wallet tranzaksiyanı rədd etdi.`
-        );
-      }
-
-      const confirmedTx = extractVerifiedOnChainTxHash(txResponse);
       setIsTxSubmitted(true);
-      if (confirmedTx) setTxHash(confirmedTx);
+      setTxHash(confirmedTx);
+      setStatus(`✅ Cüzdan tranzaksiyanı göndərdi (${choice}: ${inputUnits} ${selectedToken}).`);
 
-      setStatus(`✅ On-Chain Tranzaksiya Uğurla İcra Olundu! (${choice}: ${inputUnits} ${selectedToken})`);
-
-      await fetch("/api/submit", {
+      const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           wallet_address: activeAccount,
-          choice: choice,
+          choice,
           amount: inputUnits,
           token: selectedToken,
-          tx_hash: confirmedTx || "onchain_confirmed",
+          tx_hash: confirmedTx,
         }),
       }).catch(() => null);
+      if (!res || !res.ok) {
+        setStatus("⚠️ Tranzaksiya göndərildi, amma bahis serverdə qeydə alınmadı.");
+        return;
+      }
 
       setLivePool((prev) => ({
         total: prev.total + inputUnits,

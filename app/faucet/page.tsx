@@ -64,22 +64,17 @@ export default function FaucetAndSwapPage() {
 
     setClaiming(key);
     try {
-      const txHash = await sendViaBread({
-        senderAddress: acc,
-        recipientAddress: acc,
-        faucetId: token.faucetId,
-        amount: token.amount * 10 ** token.decimals,
-      });
-
-      await fetch('/api/faucet', {
+      const res = await fetch('/api/faucet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet_address: acc, token: token.symbol, tx_hash: txHash }),
-      }).catch((e) => console.error('/api/faucet xetasi', e));
+        body: JSON.stringify({ address: acc, token: token.symbol, amount: token.amount, faucetId: token.faucetId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Faucet xətası (${res.status})`);
 
       setClaimStatus((s) => ({
         ...s,
-        [key]: { type: 'success', message: `🎉 ${token.amount} ${token.symbol} sorğusu göndərildi!`, txHash },
+        [key]: { type: 'success', message: `🎉 ${token.amount} ${token.symbol} note-u göndərildi. Bread Wallet-də görünməsi bir az çəkə bilər.`, txHash: data.txHash },
       }));
     } catch (err: any) {
       setClaimStatus((s) => ({ ...s, [key]: { type: 'error', message: `❌ ${err.message || 'Mint xətası'}` } }));
