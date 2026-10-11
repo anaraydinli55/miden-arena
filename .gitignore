@@ -11,3 +11,4 @@ keystore/
 .vercel
 .env*
 .env.local
+*.tsbuildinfo
