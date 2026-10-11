@@ -22,7 +22,7 @@ export const ANR_LOGO_URL =
 
 // --- Bahis (escrow) konfiqurasiyasi ----------------------------------------
 // Escrow hesabi ve SKS faucet ID'si yeni deploydan sonra env'de verilir.
-export const ESCROW_ACCOUNT_ID = '0x0a03259f03dd70d14e97a693450f9a';
+export const ESCROW_ACCOUNT_ID = process.env.NEXT_PUBLIC_ESCROW_ACCOUNT_ID ?? ''; // bahis dogrulamasi baglanana kadar kapali
 
 export const BET_TOKENS: Record<'ELA' | 'ANR' | 'SKS', string> = {
   ELA: CLAIM_TOKENS.ELA.faucetId,
