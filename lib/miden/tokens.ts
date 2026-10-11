@@ -9,8 +9,9 @@ export const FEE_REQUEST_AMOUNT = 10; // faucet'ten istenecek USDCX
 
 // Testnet reset olduysa bu ID'ler zincirde yoktur; yeniden deploy edip burayi guncelleyin.
 export const CLAIM_TOKENS = {
-  ANR: { symbol: 'ANR', faucetId: '0xb7326fab564eef51689d3d52d464ce', decimals: 6, amount: 100 },
-  ELA: { symbol: 'ELA', faucetId: '0x332754bb94b4b5b115acadbb844c8c', decimals: 6, amount: 100 },
+  ANR: { symbol: 'ANR', faucetId: '0x7b9512fc7ffcd6d13e43d231bcf631', decimals: 6, amount: 100 },
+  SKS: { symbol: 'SKS', faucetId: '0xa7e2026f54982e515a45493f1d71f3', decimals: 6, amount: 100 },
+  ELA: { symbol: 'ELA', faucetId: '0x1f55b283069b45514676489c5e2c68', decimals: 6, amount: 100 },
 } as const;
 
 export type ClaimTokenKey = keyof typeof CLAIM_TOKENS;
@@ -21,10 +22,10 @@ export const ANR_LOGO_URL =
 
 // --- Bahis (escrow) konfiqurasiyasi ----------------------------------------
 // Escrow hesabi ve SKS faucet ID'si yeni deploydan sonra env'de verilir.
-export const ESCROW_ACCOUNT_ID = process.env.NEXT_PUBLIC_ESCROW_ACCOUNT_ID ?? '';
+export const ESCROW_ACCOUNT_ID = '0x0a03259f03dd70d14e97a693450f9a';
 
 export const BET_TOKENS: Record<'ELA' | 'ANR' | 'SKS', string> = {
   ELA: CLAIM_TOKENS.ELA.faucetId,
   ANR: CLAIM_TOKENS.ANR.faucetId,
-  SKS: process.env.NEXT_PUBLIC_SKS_FAUCET_ID ?? '',
+  SKS: CLAIM_TOKENS.SKS.faucetId,
 };

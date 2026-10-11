@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const maxDuration = 60;
+
 // MINT_SERVICE_URL: faucet anahtarini tutan ayri mint servisi (ornegin Railway)
 export async function POST(req: Request) {
   try {
