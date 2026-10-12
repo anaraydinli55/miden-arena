@@ -224,7 +224,7 @@ export default function FaucetAndSwapPage() {
                 </div>
                 <h3 className="text-lg font-black text-white">Official {FEE_TOKEN.symbol} Gas Faucet</h3>
                 <p className="text-xs text-gray-400 mt-1">
-                  Transaction fees on Miden testnet are paid in {FEE_TOKEN.symbol}. Claim it from the official faucet first, otherwise the ANR/ELA claims below will fail.
+                  Transaction fees on Miden testnet are paid in {FEE_TOKEN.symbol}. Claim it from the official faucet first, your wallet may not be able to collect the tokens below.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row items-center gap-2 shrink-0">
@@ -249,7 +249,7 @@ export default function FaucetAndSwapPage() {
                     <div className="w-14 h-14 rounded-2xl border border-gray-700 flex items-center justify-center font-black text-cyan-400">{t.symbol}</div>
                   )}
                   <div>
-                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Step 2 ({key === 'ANR' ? 'A' : 'B'})</span>
+                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Step 2 ({key === 'ANR' ? 'A' : key === 'SKS' ? 'B' : 'C'})</span>
                     <h3 className="text-xl font-black text-white">Claim {t.amount} {t.symbol} Tokens</h3>
                     <p className="text-xs text-gray-400 font-mono">Faucet ID: {t.faucetId}</p>
                   </div>
