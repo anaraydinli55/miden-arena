@@ -4,6 +4,9 @@ import { redis } from '@/lib/redis';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
+  if (process.env.BETS_LEDGER_OPEN !== '1') {
+    return NextResponse.json({ success: false, error: 'Bets are closed until on-chain deposit verification is enabled' }, { status: 503 });
+  }
   try {
     const body = await req.json();
     let { market_id, choice, amount, wallet_address, txHash, tx_hash } = body;

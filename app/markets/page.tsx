@@ -1,11 +1,12 @@
 'use client';
 
+import { CLAIM_TOKENS, ESCROW_ACCOUNT_ID } from '@/lib/miden/tokens';
 import React, { useState, useEffect } from 'react';
 import { OFFICIAL_MARKETS, MarketMeta } from '@/lib/markets';
 import { useWallet } from '@/components/wallet/wallet-provider';
 
-const ANR_FAUCET_ID = '0xb7326fab564eef51689d3d52d464ce';
-const MARKET_CONTRACT_ID = '0xc05fa91f939040d1751dc990cb2dde';
+const ANR_FAUCET_ID = CLAIM_TOKENS.ANR.faucetId;
+const MARKET_CONTRACT_ID = ESCROW_ACCOUNT_ID;
 
 function getLocalBreadProvider() {
   if (typeof window === 'undefined') return null;
@@ -69,6 +70,10 @@ export default function MarketsPage() {
   // 🍞 Real Bread Wallet Tranzaksiya İcrası (requestSend + 6 decimals)
   const handleConfirmBreadTransaction = async () => {
     if (!selectedMarket) return;
+    if (!ESCROW_ACCOUNT_ID) {
+      setTxNotification({ type: 'error', message: 'Bahis qəbulu hələ aktiv deyil: depozito doğrulaması hazırlanır.' });
+      return;
+    }
 
     setIsSigning(true);
     setTxNotification({
