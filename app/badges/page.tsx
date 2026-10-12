@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useWallet } from '@/components/wallet/wallet-provider';
 
 export default function BadgesPage() {
+  const { address } = useWallet();
   const [badges, setBadges] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadBadges = () => {
-    fetch(`/api/user-stats?t=${Date.now()}`, { cache: 'no-store' })
+    fetch(`/api/user-stats?wallet=${encodeURIComponent(address || '')}&t=${Date.now()}`, { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data && data.badges && data.badges.length > 0) {
@@ -22,7 +24,7 @@ export default function BadgesPage() {
     loadBadges();
     const interval = setInterval(loadBadges, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [address]);
 
   return (
     <div className="p-8 pt-10 max-w-7xl mx-auto text-white">

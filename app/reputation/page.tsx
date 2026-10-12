@@ -1,15 +1,17 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useWallet } from '@/components/wallet/wallet-provider';
 
 export default function ReputationPage() {
+  const { address } = useWallet();
   const [stats, setStats] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   const loadData = async () => {
     try {
-      const res = await fetch(`/api/user-stats?t=${Date.now()}`, {
+      const res = await fetch(`/api/user-stats?wallet=${encodeURIComponent(address || '')}&t=${Date.now()}`, {
         cache: 'no-store',
         headers: { 'Cache-Control': 'no-cache' },
       });
@@ -27,13 +29,13 @@ export default function ReputationPage() {
     loadData();
     const interval = setInterval(loadData, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [address]);
 
-  const xp = stats?.xp || 1600;
-  const totalBets = stats?.totalBets || 16;
-  const totalVolume = stats?.totalVolume || 160;
-  const streak = stats?.streak || 1;
-  const walletAddr = stats?.wallet || 'mtst1aqq...wr6w';
+  const xp = stats?.xp || 0;
+  const totalBets = stats?.totalBets || 0;
+  const totalVolume = stats?.totalVolume || 0;
+  const streak = stats?.streak || 0;
+  const walletAddr = address || 'Bread Wallet bağlı deyil';
 
   return (
     <div className="p-8 pt-10 max-w-7xl mx-auto text-white">
