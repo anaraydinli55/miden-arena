@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useWallet } from "@/components/wallet/wallet-provider";
-import { sendViaBread } from "@/lib/miden/bread";
-import { BET_TOKENS, ESCROW_ACCOUNT_ID } from "@/lib/miden/tokens";
+import { placeBet } from "@/lib/bet-client";
+import { ESCROW_ACCOUNT_ID } from "@/lib/miden/tokens";
 
 function getLocalBreadProvider() {
   if (typeof window === "undefined") return null;
@@ -25,20 +25,20 @@ export function PredictionPanel() {
   const [status, setStatus] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [livePool, setLivePool] = useState<{ total: number; yes: number; no: number }>({
-    total: 105,
-    yes: 95,
-    no: 10,
+    total: 0,
+    yes: 0,
+    no: 0,
   });
 
   const fetchLiveState = async () => {
     try {
-      const res = await fetch("/api/market");
+      const res = await fetch(`/api/market?market_id=miden-mainnet-q4&token=${selectedToken}`);
       if (res.ok) {
         const data = await res.json();
         setLivePool({
-          total: data.total_pool || 105,
-          yes: data.yes_pool || 95,
-          no: data.no_pool || 10,
+          total: data.total_pool || 0,
+          yes: data.yes_pool || 0,
+          no: data.no_pool || 0,
         });
       }
     } catch (e) {}
@@ -46,9 +46,9 @@ export function PredictionPanel() {
 
   useEffect(() => {
     fetchLiveState();
-    const interval = setInterval(fetchLiveState, 4000);
+    const interval = setInterval(fetchLiveState, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedToken]);
 
   const submitPrediction = async () => {
     setStatus(null);
@@ -90,49 +90,24 @@ export function PredictionPanel() {
       }
 
       const inputUnits = Number(amount);
-      if (!Number.isFinite(inputUnits) || inputUnits <= 0) {
-        throw new Error("Məbləğ düzgün deyil.");
-      }
-      if (!ESCROW_ACCOUNT_ID) {
-        throw new Error("Bahis qəbulu hələ aktiv deyil: escrow hesabı konfiqurasiya olunmayıb.");
-      }
-      const targetFaucet = BET_TOKENS[selectedToken];
-      if (!targetFaucet) {
-        throw new Error(`${selectedToken} faucet ID-si konfiqurasiya olunmayıb.`);
+      if (!Number.isInteger(inputUnits) || inputUnits < 1 || inputUnits > 1000) {
+        throw new Error("Məbləğ 1 ilə 1000 arasında tam ədəd olmalıdır.");
       }
 
-      const confirmedTx = await sendViaBread({
-        senderAddress: activeAccount,
-        recipientAddress: ESCROW_ACCOUNT_ID,
-        faucetId: targetFaucet,
-        amount: Math.round(inputUnits * DECIMALS_MULTIPLIER),
+      const result = await placeBet({
+        wallet: activeAccount,
+        marketId: "miden-mainnet-q4",
+        choice,
+        token: selectedToken,
+        amount: inputUnits,
+        onStatus: (m) => setStatus(m),
       });
+      if (result.txHash) setTxHash(result.txHash);
+      if (!result.ok) throw new Error(result.error);
 
       setIsTxSubmitted(true);
-      setTxHash(confirmedTx);
-      setStatus(`✅ Cüzdan tranzaksiyanı göndərdi (${choice}: ${inputUnits} ${selectedToken}).`);
-
-      const res = await fetch("/api/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          wallet_address: activeAccount,
-          choice,
-          amount: inputUnits,
-          token: selectedToken,
-          tx_hash: confirmedTx,
-        }),
-      }).catch(() => null);
-      if (!res || !res.ok) {
-        setStatus("⚠️ Tranzaksiya göndərildi, amma bahis serverdə qeydə alınmadı.");
-        return;
-      }
-
-      setLivePool((prev) => ({
-        total: prev.total + inputUnits,
-        yes: choice === "YES" ? prev.yes + inputUnits : prev.yes,
-        no: choice === "NO" ? prev.no + inputUnits : prev.no,
-      }));
+      setStatus(`✅ Bahis qeydə alındı (${choice}: ${inputUnits} ${selectedToken}).`);
+      fetchLiveState();
     } catch (err: any) {
       console.error("Bread Submission Error:", err);
       setIsTxSubmitted(false);
@@ -215,7 +190,7 @@ export function PredictionPanel() {
                   : "border-white/10 bg-black/30 text-white/50 hover:bg-white/[0.05]"
               }`}
             >
-              {token === "ELA" ? "💎 ELA (1000)" : token === "ANR" ? "🏛️ ANR" : "🪙 SKS"}
+              {token === "ELA" ? "💎 ELA" : token === "ANR" ? "🏛️ ANR" : "🪙 SKS"}
             </button>
           ))}
         </div>

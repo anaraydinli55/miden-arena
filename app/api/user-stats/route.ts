@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { redis } from '@/lib/redis';
+import { normWallet } from '@/lib/ledger';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -14,7 +15,7 @@ const BADGES = [
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const wallet = searchParams.get('wallet')?.toLowerCase().trim() || '';
+    const wallet = normWallet(searchParams.get('wallet') || '');
 
     let userStats: any = null;
     let history: any[] = [];
