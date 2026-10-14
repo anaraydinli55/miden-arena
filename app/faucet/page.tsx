@@ -23,7 +23,7 @@ const SWAP_FAUCETS: Record<SwapToken, { faucetId: string; decimals: number }> = 
 
 export default function FaucetAndSwapPage() {
   const { address, connected, connect } = useWallet();
-  const [activeTab, setActiveTab] = useState<'SWAP' | 'FAUCET'>('SWAP');
+  const [activeTab, setActiveTab] = useState<'SWAP' | 'FAUCET'>('FAUCET');
 
   const [claiming, setClaiming] = useState<ClaimTokenKey | null>(null);
   const [claimStatus, setClaimStatus] = useState<Partial<Record<ClaimTokenKey, Status>>>({});
@@ -84,6 +84,10 @@ export default function FaucetAndSwapPage() {
   };
 
   const handleExecuteSwap = async () => {
+    setSwapStatus({ type: 'error', message: 'Swap hələ aktiv deyil (tezliklə).' });
+  };
+
+  const handleExecuteSwapDisabled = async () => {
     setSwapStatus(null);
     const acc = await ensureAccount();
     if (!acc) {

@@ -26,18 +26,10 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
-  if (process.env.BETS_LEDGER_OPEN !== '1') {
-    return NextResponse.json({ success: false, error: 'Bets are closed until on-chain deposit verification is enabled' }, { status: 503 });
-  }
-  try {
-    const { predictionId, outcomeValue, amount, tokenSymbol } = await req.json();
-    if (!predictionId || !outcomeValue || !amount)
-      return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
-    await recordBetToLiveMemory(predictionId, outcomeValue, Number(amount), tokenSymbol || 'ANR');
-    return NextResponse.json({ success: true, message: 'Bet recorded' });
-  } catch (error) {
-    console.error('Predictions POST error:', error);
-    return NextResponse.json({ success: false, error: 'Failed to record' }, { status: 500 });
-  }
+// Kullanimdan kaldirildi: bahisler /api/bet/intent ve /api/bet/confirm uzerinden gecer.
+export async function POST() {
+  return NextResponse.json(
+    { success: false, error: 'Deprecated endpoint. Use /api/bet/intent and /api/bet/confirm.' },
+    { status: 410 }
+  );
 }
