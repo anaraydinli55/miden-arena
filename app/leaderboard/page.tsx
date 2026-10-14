@@ -37,7 +37,7 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     fetchLeaderboard();
-    const interval = setInterval(fetchLeaderboard, 4000);
+    const interval = setInterval(fetchLeaderboard, 20000);
     return () => clearInterval(interval);
   }, [connectedAddress]);
 

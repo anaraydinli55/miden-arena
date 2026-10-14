@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { redis } from '@/lib/redis';
+import { asObj, hasRealRedis, normWallet } from '@/lib/ledger';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -7,38 +8,22 @@ export const revalidate = 0;
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const userAddress = searchParams.get('address');
+    const meFull = (searchParams.get('address') || '').trim().slice(0, 100);
+    const me = normWallet(meFull);
 
-    // Upstash Redis-dən real istifadəçi sıralamasını çəkirik
-    const rawLeaderboard: any = await redis.get('arena:global:leaderboard') || [];
-    
-    let users = Array.isArray(rawLeaderboard) ? rawLeaderboard : [];
+    const raw: Record<string, unknown> | null = hasRealRedis() ? await redis.hgetall('lb:users') : null;
+    const users: any[] = Object.values(raw || {}).map(asObj).filter(Boolean);
 
-    // Əgər istifadəçi cüzdanını qoşubsa və hələ siyahıda yoxdursa, onu 0 xalla daxil edirik
-    if (userAddress && !users.some((u: any) => u.address.toLowerCase() === userAddress.toLowerCase())) {
-      users.push({
-        address: userAddress,
-        predictionsCount: 0,
-        volume: '0 ELA',
-        xp: 0,
-      });
+    if (me) {
+      const mine = users.find((u) => String(u.address).toLowerCase() === me);
+      if (mine) mine.address = meFull; // yalniz istek sahibinin satiri: "siz" vurgusu icin
+      else users.push({ address: meFull, predictionsCount: 0, volume: '0', xp: 0 });
     }
 
-    // XP xalına görə ən yüksəkdən aza doğru real sıralayırıq
-    users.sort((a: any, b: any) => b.xp - a.xp);
-
-    // Sıralama nömrələrini (Rank) təyin edirik
-    const rankedUsers = users.map((u: any, index: number) => ({
-      ...u,
-      rank: index + 1,
-    }));
-
-    return NextResponse.json({
-      success: true,
-      users: rankedUsers,
-      totalUsers: rankedUsers.length,
-    });
-  } catch (error) {
+    users.sort((a, b) => Number(b.xp) - Number(a.xp));
+    const ranked = users.slice(0, 100).map((u, i) => ({ ...u, rank: i + 1 }));
+    return NextResponse.json({ success: true, users: ranked, totalUsers: users.length });
+  } catch {
     return NextResponse.json({ success: true, users: [], totalUsers: 0 });
   }
 }

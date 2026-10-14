@@ -78,6 +78,18 @@ export async function creditDeposit(p: {
   };
   await redis.set(`user:${p.wallet}`, JSON.stringify(stats));
   await redis.zadd('leaderboard:xp', { score: stats.xp, member: p.wallet });
+  const volumeText = Object.entries(volumeByToken)
+    .filter(([, v]) => Number(v) > 0)
+    .map(([t, v]) => `${Math.round(Number(v) * 100) / 100} ${t}`)
+    .join(' · ');
+  await redis.hset('lb:users', {
+    [p.wallet]: JSON.stringify({
+      address: p.wallet,
+      predictionsCount: totalBets,
+      volume: volumeText || '0',
+      xp: stats.xp,
+    }),
+  });
   await redis.lpush(
     `history:${p.wallet}`,
     JSON.stringify({
