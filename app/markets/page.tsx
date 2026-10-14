@@ -1,11 +1,11 @@
 'use client';
 
-import { CLAIM_TOKENS, ESCROW_ACCOUNT_ID } from '@/lib/miden/tokens';
+import { BET_TOKENS, ESCROW_ACCOUNT_ID } from '@/lib/miden/tokens';
+import { placeBet } from '@/lib/bet-client';
 import React, { useState, useEffect } from 'react';
 import { OFFICIAL_MARKETS, MarketMeta } from '@/lib/markets';
 import { useWallet } from '@/components/wallet/wallet-provider';
 
-const ANR_FAUCET_ID = CLAIM_TOKENS.ANR.faucetId;
 const MARKET_CONTRACT_ID = ESCROW_ACCOUNT_ID;
 
 function getLocalBreadProvider() {
@@ -17,6 +17,7 @@ export default function MarketsPage() {
   const { address, connected, connect } = useWallet();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [pools, setPools] = useState<Record<string, any>>({});
+  const [activeToken, setActiveToken] = useState<'ANR' | 'SKS' | 'ELA'>('ANR');
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -32,17 +33,18 @@ export default function MarketsPage() {
 
   const fetchPools = async () => {
     try {
-      const res = await fetch(`/api/market?t=${Date.now()}`, { cache: 'no-store' });
+      const res = await fetch(`/api/market?token=${activeToken}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.pools) setPools(data.pools);
     } catch (e) {}
   };
 
   useEffect(() => {
+    setPools({});
     fetchPools();
-    const interval = setInterval(fetchPools, 3000);
+    const interval = setInterval(fetchPools, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [activeToken]);
 
   const openBetModal = async (market: MarketMeta, choice: 'YES' | 'NO') => {
     let activeAccount = address;
@@ -76,113 +78,42 @@ export default function MarketsPage() {
     }
 
     setIsSigning(true);
-    setTxNotification({
-      type: 'pending',
-      message: "🍞 Bread Wallet təsdiq pəncərəsi açılır... Zəhmət olmasa 'Confirm' basın.",
-    });
+    setTxNotification({ type: 'pending', message: '🍞 Hazırlanır...' });
 
     try {
-      const breadProvider = getLocalBreadProvider();
-      if (!breadProvider) {
-        throw new Error('Bread Wallet brauzerinizdə tapılmadı.');
-      }
+      if (!getLocalBreadProvider()) throw new Error('Bread Wallet brauzerinizdə tapılmadı.');
 
       let activeAccount = address;
-      if (!activeAccount && typeof breadProvider.connect === 'function') {
-        try {
-          const res = await breadProvider.connect();
-          activeAccount = res?.address || (res?.accounts && res.accounts[0]) || null;
-        } catch (e) {}
+      if (!activeAccount) activeAccount = await connect();
+      if (!activeAccount) throw new Error('Bread Wallet bağlantısı təsdiqlənmədi.');
+
+      const inputNum = Math.floor(Number(betAmount));
+      if (!Number.isInteger(inputNum) || inputNum < 1 || inputNum > 1000) {
+        throw new Error('Məbləğ 1 ilə 1000 arasında tam ədəd olmalıdır.');
       }
 
-      if (!activeAccount) {
-        activeAccount = await connect();
-      }
-
-      if (!activeAccount) {
-        throw new Error('Bread Wallet bağlantısı təsdiqlənmədi.');
-      }
-
-      const inputNum = Number(betAmount) || 10;
-      // 6 decimals: 10 ANR = 10,000,000 base units
-      const sendBaseUnits = inputNum * 1_000_000;
-
-      const txObj = {
-        senderAddress: activeAccount,
-        recipientAddress: MARKET_CONTRACT_ID,
-        faucetId: ANR_FAUCET_ID,
-        noteType: 'public' as const,
-        amount: sendBaseUnits,
-      };
-
-      console.log('Markets: Submitting transaction payload to Bread Wallet:', txObj);
-
-      let txResponse: any = null;
-
-      if (typeof breadProvider.requestSend === 'function') {
-        txResponse = await breadProvider.requestSend(txObj);
-      } else if (typeof breadProvider.requestSendTransaction === 'function') {
-        txResponse = await breadProvider.requestSendTransaction(txObj);
-      } else if (typeof breadProvider.sendTransaction === 'function') {
-        txResponse = await breadProvider.sendTransaction(txObj);
-      } else if (typeof breadProvider.request === 'function') {
-        txResponse = await breadProvider.request({
-          method: 'miden_sendTransaction',
-          params: [txObj],
-        });
-      }
-
-      console.log('Markets: Bread Wallet response:', txResponse);
-
-      if (
-        txResponse &&
-        typeof txResponse === 'object' &&
-        (txResponse.error ||
-          txResponse.success === false ||
-          (typeof txResponse.status === 'string' && /fail|error|reject/i.test(txResponse.status)))
-      ) {
-        throw new Error(txResponse.error?.message || txResponse.error || 'Bread Wallet tranzaksiyanı rədd etdi.');
-      }
-
-      const confirmedTx =
-        txResponse?.transactionId ||
-        txResponse?.hash ||
-        txResponse?.id ||
-        `0x_miden_zk_${activeAccount.slice(0, 8)}_${Date.now().toString(16)}`;
-
-      // API Yeniləməsi
-      const submitRes = await fetch('/api/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          market_id: selectedMarket.id,
-          choice: selectedChoice,
-          amount: inputNum,
-          wallet_address: activeAccount,
-          tx_hash: confirmedTx,
-        }),
+      const result = await placeBet({
+        wallet: activeAccount,
+        marketId: selectedMarket.id,
+        choice: selectedChoice,
+        token: activeToken,
+        amount: inputNum,
+        onStatus: (m) => setTxNotification({ type: 'pending', message: `🍞 ${m}` }),
       });
+      if (!result.ok) throw new Error(result.error);
 
-      const data = await submitRes.json();
-      if (data.success) {
-        setModalOpen(false);
-        setTxNotification({
-          type: 'success',
-          message: `✅ Tranzaksiya Zəncirə Göndərildi və Bread Wallet-də Confirmed Oldu! (${selectedChoice}: ${inputNum} ANR)`,
-          txHash: confirmedTx,
-        });
-        fetchPools();
-        setTimeout(() => setTxNotification(null), 6000);
-      } else {
-        throw new Error(data.error || 'Failed to record transaction');
-      }
+      setModalOpen(false);
+      setTxNotification({
+        type: 'success',
+        message: `✅ Bahis qeydə alındı (${selectedChoice}: ${inputNum} ${activeToken}).`,
+        txHash: result.txHash,
+      });
+      fetchPools();
+      setTimeout(() => setTxNotification(null), 8000);
     } catch (err: any) {
       console.error('Markets submission error:', err);
-      setTxNotification({
-        type: 'error',
-        message: `❌ Cüzdan Xətası: ${err.message || 'Tranzaksiya icra olunmadı'}`,
-      });
-      setTimeout(() => setTxNotification(null), 5000);
+      setTxNotification({ type: 'error', message: `❌ ${err.message || 'Tranzaksiya icra olunmadı'}` });
+      setTimeout(() => setTxNotification(null), 8000);
     } finally {
       setIsSigning(false);
     }
@@ -261,13 +192,31 @@ export default function MarketsPage() {
         ))}
       </div>
 
+      {/* Token seçimi: hər token üçün ayrı hovuz */}
+      <div className="flex items-center gap-2 mb-6">
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider mr-1">Pool</span>
+        {(['ANR', 'SKS', 'ELA'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setActiveToken(t)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+              activeToken === t
+                ? 'bg-purple-500/20 text-purple-300 border-purple-400'
+                : 'bg-[#141822] text-gray-400 hover:text-white border-gray-800'
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
       {/* Kartlar */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredMarkets.map((market) => {
           const poolData = pools[market.id] || {
-            total_pool: 20,
-            yes_pool: 10,
-            no_pool: 10,
+            total_pool: 0,
+            yes_pool: 0,
+            no_pool: 0,
             yes_percent: 50,
             no_percent: 50,
           };
@@ -301,7 +250,7 @@ export default function MarketsPage() {
 
                 <div className="flex items-center justify-between text-xs text-gray-400 py-3 px-3.5 rounded-xl bg-[#0d1017] border border-gray-800/60 mb-5 font-mono">
                   <div className="flex items-center gap-1.5 text-gray-300">
-                    <span>📊 {poolData.total_pool || 20} {market.tokenSymbol}</span>
+                    <span>📊 {poolData.total_pool || 0} {activeToken}</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-amber-400/90 font-medium">
                     <span>⏱ {formatTimeLeft(market.expiresAt)}</span>
@@ -313,10 +262,10 @@ export default function MarketsPage() {
                 <div className="mb-4">
                   <div className="flex justify-between text-xs font-bold mb-1.5 font-mono">
                     <span className="text-emerald-400">
-                      YES {hasStakes ? `${poolData.yes_percent}%` : '50%'} ({poolData.yes_pool || 10} ANR)
+                      YES {hasStakes ? `${poolData.yes_percent}%` : '50%'} ({poolData.yes_pool || 0} {activeToken})
                     </span>
                     <span className="text-rose-400">
-                      NO {hasStakes ? `${poolData.no_percent}%` : '50%'} ({poolData.no_pool || 10} ANR)
+                      NO {hasStakes ? `${poolData.no_percent}%` : '50%'} ({poolData.no_pool || 0} {activeToken})
                     </span>
                   </div>
                   <div className="w-full h-2.5 bg-gray-800 rounded-full overflow-hidden flex">
@@ -383,7 +332,7 @@ export default function MarketsPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Token Faucet:</span>
-                <span className="text-amber-400 font-semibold">{ANR_FAUCET_ID.slice(0, 12)}...{ANR_FAUCET_ID.slice(-4)} (ANR)</span>
+                <span className="text-amber-400 font-semibold">{BET_TOKENS[activeToken].slice(0, 12)}...{BET_TOKENS[activeToken].slice(-4)} ({activeToken})</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Connected:</span>
@@ -423,8 +372,8 @@ export default function MarketsPage() {
 
             <div className="mb-6">
               <div className="flex justify-between text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-                <span>Prediction Points / ANR Amount</span>
-                <span className="text-cyan-400">+{betAmount * 10} XP Reward</span>
+                <span>Prediction Points / {activeToken} Amount</span>
+                <span className="text-cyan-400">+100 XP Reward</span>
               </div>
               <div className="grid grid-cols-4 gap-2 mb-3">
                 {[10, 25, 50, 100].map((amt) => (
@@ -438,7 +387,7 @@ export default function MarketsPage() {
                         : 'bg-[#141822] text-gray-300 border-gray-800 hover:bg-gray-800'
                     }`}
                   >
-                    {amt} ANR
+                    {amt} {activeToken}
                   </button>
                 ))}
               </div>
@@ -446,7 +395,7 @@ export default function MarketsPage() {
                 type="number"
                 min="1"
                 value={betAmount}
-                onChange={(e) => setBetAmount(Math.max(1, Number(e.target.value)))}
+                onChange={(e) => setBetAmount(Math.min(1000, Math.max(1, Math.floor(Number(e.target.value) || 1))))}
                 className="w-full bg-[#0d1017] border border-gray-800 rounded-xl px-4 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-cyan-500"
               />
             </div>
