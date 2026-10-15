@@ -38,7 +38,7 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* 📱 1. MOBİL ÜÇÜN YUXARI HEADER */}
+      {/* 📱 1. Mobile top header */}
       <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-[#0b0e14]/95 backdrop-blur-md border-b border-gray-800/80 px-4 flex items-center justify-between z-40">
         <div className="flex items-center gap-3">
           <button
@@ -67,7 +67,7 @@ export default function Sidebar() {
         </button>
       </header>
 
-      {/* 📱 2. MOBİL DRAWER OVERLAY */}
+      {/* 📱 2. Mobile drawer overlay */}
       {mobileOpen && (
         <div 
           className="md:hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 transition-opacity"
@@ -75,15 +75,15 @@ export default function Sidebar() {
         />
       )}
 
-      {/* 💻 3. DESKTOP & MOBİL SIDEBAR PANELİ */}
+      {/* 💻 3. Desktop and mobile sidebar panel */}
       <aside className={`
         fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#0b0e14] border-r border-gray-800/80 flex flex-col justify-between
         transition-transform duration-300 ease-in-out
         ${mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'}
       `}>
-        {/* Yuxarı Hissə: Loqo və Naviqasiya */}
+        {/* Top section: logo and navigation */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          {/* Loqo Başlığı */}
+          {/* Logo heading */}
           <div className="h-16 px-6 flex items-center justify-between border-b border-gray-800/60 shrink-0">
             <Link href="/" className="flex items-center gap-3">
               <img src="/logo.png" alt="Miden Arena Logo" className="w-9 h-9 rounded-xl object-contain shadow-md shadow-yellow-500/10" onError={(e) => { (e.target as any).style.display = 'none'; }} />
@@ -101,7 +101,7 @@ export default function Sidebar() {
             </button>
           </div>
 
-          {/* Navigasiya Linkləri */}
+          {/* Navigation links */}
           <nav className="p-4 space-y-1.5 overflow-y-auto flex-1">
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
@@ -126,10 +126,10 @@ export default function Sidebar() {
           </nav>
         </div>
 
-        {/* Aşağı Hissə: Desktop Cüzdan Kartı və Sosial Linklər */}
+        {/* Bottom section: wallet card and social links */}
         <div className="shrink-0 flex flex-col border-t border-gray-800/80 bg-[#0d1117]/80">
           
-          {/* 💳 DESKTOP CÜZDAN BAĞLANTI BLOKU */}
+          {/* 💳 Desktop wallet connection block */}
           <div className="p-3.5 pb-2">
             {connected && address ? (
               <div className="bg-[#161b22] border border-emerald-500/30 rounded-2xl p-3 space-y-2 shadow-lg shadow-emerald-500/5">
@@ -168,7 +168,7 @@ export default function Sidebar() {
             )}
           </div>
 
-          {/* 🌐 Miden Rəsmi Sosial Şəbəkələr */}
+          {/* 🌐 Official Miden social links */}
           <div className="px-3.5 pb-3.5 pt-1 space-y-2">
             <div className="flex items-center justify-between px-1">
               <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500">Miden Community</span>

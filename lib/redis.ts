@@ -41,7 +41,7 @@ export const redis = (url && token)
   : (console.warn('⚠️ Upstash env eksik — in-memory fallback aktif'), memRedis as any);
 
 // ---------------------------------------------------------------------------
-// redisCommand — REST API üzerinden ham komut (src/lib/redis.ts uyumluluğu)
+// redisCommand: raw command over the REST API
 // ---------------------------------------------------------------------------
 export async function redisCommand(command: string, ...args: (string | number)[]) {
   if (!url || !token) {

@@ -21,7 +21,7 @@ export function useLivePredictions(category?: 'Market' | 'Arena') {
 
   useEffect(() => {
     fetchLivePools();
-    // Hər 5 saniyədən bir Upstash canlı yaddaşını yeniləyir
+    // Refreshes the live Upstash data every 5 seconds
     const interval = setInterval(fetchLivePools, 5000);
     return () => clearInterval(interval);
   }, []);

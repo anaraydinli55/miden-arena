@@ -2,7 +2,7 @@ export interface OutcomeOption {
   label: string;
   value: string;
   color?: string;
-  poolAmount: number; // 0-dan başlayır (Real on-chain depozitlər)
+  poolAmount: number; // starts at 0 (real on-chain deposits)
 }
 
 export interface PredictionItem {
@@ -14,13 +14,13 @@ export interface PredictionItem {
   isBoosted: boolean;
   endDate: string; // ISO Format (Real Tarix)
   tokenSymbol: 'ELA' | 'ANR';
-  totalVolume: 0; // 0 ELA / 0 ANR (Mock rəqəm YOXDUR)
+  totalVolume: 0; // 0 ELA / 0 ANR (no mock numbers)
   outcomes: OutcomeOption[];
   image: string;
   description: string;
 }
 
-// Canlı Gerisayım Hesablayıcı (Heç bir statik/mock vaxt yoxdur)
+// Live countdown (no static or mock times)
 export const getTimeRemaining = (endDateStr: string): string => {
   const total = Date.parse(endDateStr) - Date.now();
   if (total <= 0) return 'Ended';
@@ -32,7 +32,7 @@ export const getTimeRemaining = (endDateStr: string): string => {
   return `${days}d : ${hours}h : ${minutes}m`;
 };
 
-// Faizləri real hovuz miqdarına görə dinamik hesablayır (Başlanğıcda 50/50 neytral)
+// Computes percentages from the real pool amounts (neutral 50/50 at the start)
 export const calculateProbability = (outcomes: OutcomeOption[], totalVolume: 0): number => {
   if (totalVolume === 0 || outcomes.length < 2) return 50;
   return Math.round((outcomes[0].poolAmount / totalVolume) * 100);
@@ -40,10 +40,10 @@ export const calculateProbability = (outcomes: OutcomeOption[], totalVolume: 0):
 
 export const PREDICTIONS_DATA: PredictionItem[] = [
   // =================================================================
-  // 🏪 MARKET KATEQORİYASI (Token: ELA & ANR | Bütün Həcmlər = 0)
+  // 🏪 MARKET CATEGORY (tokens: ELA & ANR | all volumes = 0)
   // =================================================================
 
-  // --- 📅 10 Oktyabr 2026 Hədəfləri ---
+  // --- 📅 Targets for 10 October 2026 ---
   {
     id: 'mkt-uni-10k',
     title: 'Will Uniswap (UNI) hit $10 by October 10, 2026?',
@@ -113,7 +113,7 @@ export const PREDICTIONS_DATA: PredictionItem[] = [
     description: 'Based on CoinGecko global total crypto market capitalization metric.',
   },
 
-  // --- 📅 Oktyabrın Sonu (31 Oktyabr 2026) ---
+  // --- 📅 End of October (31 October 2026) ---
   {
     id: 'mkt-gold-4500',
     title: 'Will gold hit US$4,500/oz by end of October 2026?',
@@ -167,10 +167,10 @@ export const PREDICTIONS_DATA: PredictionItem[] = [
   },
 
   // =================================================================
-  // ⚔️ ARENA KATEQORİYASI (Token: ANR & ELA | Bütün Həcmlər = 0)
+  // ⚔️ ARENA CATEGORY (tokens: ANR & ELA | all volumes = 0)
   // =================================================================
 
-  // --- 📅 10 Oktyabr 2026 Hədəfləri ---
+  // --- 📅 Targets for 10 October 2026 ---
   {
     id: 'arn-liv-top3',
     title: 'Will Liverpool be in the Premier League Top 3 on October 10, 2026?',
@@ -206,7 +206,7 @@ export const PREDICTIONS_DATA: PredictionItem[] = [
     description: 'Resolves to YES if any Western (LCS/LEC) esports team qualifies for semifinals.',
   },
 
-  // --- 📅 Oktyabrın Sonu (25-31 Oktyabr 2026) ---
+  // --- 📅 End of October (25-31 October 2026) ---
   {
     id: 'arn-clasico-oct25',
     title: 'El Clásico (Oct 25, 2026): Real Madrid, Barcelona, or Draw?',

@@ -26,7 +26,7 @@ export async function GET() {
   }
 }
 
-// Kullanimdan kaldirildi: bahisler /api/bet/intent ve /api/bet/confirm uzerinden gecer.
+// Deprecated: bets go through /api/bet/intent and /api/bet/confirm.
 export async function POST() {
   return NextResponse.json(
     { success: false, error: 'Deprecated endpoint. Use /api/bet/intent and /api/bet/confirm.' },

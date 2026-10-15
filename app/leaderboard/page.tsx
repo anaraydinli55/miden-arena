@@ -74,7 +74,7 @@ export default function LeaderboardPage() {
           </div>
         </div>
 
-        {/* Real Stats Highlight (Mobildə 1 sütun, planşet/desktopda 3 sütun) */}
+        {/* Stats highlight (1 column on mobile, 3 on tablet/desktop) */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
           <div className="bg-[#161b22] border border-gray-800 rounded-2xl p-4 md:p-5 flex items-center gap-3.5">
             <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center text-yellow-400 font-bold text-lg md:text-xl shrink-0">
@@ -137,7 +137,7 @@ export default function LeaderboardPage() {
           </div>
         )}
 
-        {/* Leaderboard Table (Mobildə sağa-sola rahat sürüşən overflow) */}
+        {/* Leaderboard table (scrolls horizontally on mobile) */}
         <div className="bg-[#161b22] border border-gray-800 rounded-2xl overflow-hidden shadow-2xl">
           <div className="overflow-x-auto w-full">
             <table className="w-full text-left border-collapse min-w-[550px]">

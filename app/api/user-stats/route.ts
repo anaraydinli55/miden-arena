@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     let userStats: any = null;
     let history: any[] = [];
 
-    // Yalnizca istenen cuzdanin KENDI verisi. Baska cuzdana asla geri dusmez.
+    // Only the requested wallet's own data. Never falls back to another wallet.
     if (wallet) {
       userStats = await redis.get(`user:${wallet}`);
       const raw: any[] = (await redis.lrange(`history:${wallet}`, 0, 49)) || [];

@@ -73,7 +73,7 @@ export default function MarketsPage() {
     setModalOpen(true);
   };
 
-  // 🍞 Real Bread Wallet Tranzaksiya İcrası (requestSend + 6 decimals)
+  // 🍞 Place a bet: intent, Bread Wallet deposit, on-chain verification
   const handleConfirmBreadTransaction = async () => {
     if (!selectedMarket) return;
     if (!ESCROW_ACCOUNT_ID) {
@@ -421,7 +421,7 @@ export default function MarketsPage() {
               {isSigning ? (
                 <>
                   <span className="h-4 w-4 rounded-full border-2 border-black border-t-transparent animate-spin"></span>
-                  Bread Wallet təsdiq gözlənilir...
+                  Waiting for Bread Wallet confirmation...
                 </>
               ) : (
                 `⚡ Submit ZK Prediction (${betAmount} ANR)`

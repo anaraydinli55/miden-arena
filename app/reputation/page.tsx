@@ -53,7 +53,7 @@ export default function ReputationPage() {
         </button>
       </div>
 
-      {/* Statistika Kartları */}
+      {/* Stat cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-[#121620] border border-gray-800 rounded-2xl p-5 shadow-xl">
           <div className="text-gray-400 text-xs font-bold uppercase tracking-wider">Earned XP</div>
@@ -80,7 +80,7 @@ export default function ReputationPage() {
         </div>
       </div>
 
-      {/* Cüzdan İdentifikasiyası */}
+      {/* Wallet identity */}
       <div className="bg-[#121620] border border-gray-800 rounded-2xl p-6 mb-8 shadow-xl">
         <h2 className="text-base font-extrabold mb-3">Connected Identity</h2>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-[#0d1017] rounded-xl border border-gray-800/80 font-mono">
@@ -95,7 +95,7 @@ export default function ReputationPage() {
         </div>
       </div>
 
-      {/* Tranzaksiya Tarixçəsi Cədvəli */}
+      {/* Transaction history table */}
       <div className="bg-[#121620] border border-gray-800 rounded-3xl overflow-hidden shadow-2xl">
         <div className="p-6 border-b border-gray-800">
           <h2 className="text-lg font-black">On-Chain Prediction & Tx History</h2>
