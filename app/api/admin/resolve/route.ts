@@ -38,6 +38,7 @@ export async function POST(req: Request) {
       if (!ok) return json({ success: false, error: 'concurrent resolve' }, 409);
       await new Promise((r) => setTimeout(r, 3000));
     }
+    await redis.hset('resolved:all', { [marketId]: outcome });
 
     const { items, problems, summary } = await buildPlan(marketId, outcome);
     if (problems.length) {

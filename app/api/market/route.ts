@@ -21,6 +21,10 @@ export async function GET(req: Request) {
   } catch {
     for (const m of OFFICIAL_MARKETS) pools[m.id] = shapePool(0, 0);
   }
+  let resolved: Record<string, string> = {};
+  try {
+    if (hasRealRedis()) resolved = ((await redis.hgetall('resolved:all')) || {}) as Record<string, string>;
+  } catch {}
   const state = pools[marketId] ?? shapePool(0, 0);
 
   return new NextResponse(
@@ -32,6 +36,7 @@ export async function GET(req: Request) {
       updated_state: state,
       token,
       pools,
+      resolved,
     }),
     { status: 200, headers: { 'Cache-Control': 'no-store, max-age=0' } }
   );

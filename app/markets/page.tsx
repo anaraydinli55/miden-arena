@@ -17,6 +17,7 @@ export default function MarketsPage() {
   const { address, connected, connect } = useWallet();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [pools, setPools] = useState<Record<string, any>>({});
+  const [resolved, setResolved] = useState<Record<string, string>>({});
   const [activeToken, setActiveToken] = useState<'ANR' | 'SKS' | 'ELA'>('ANR');
 
   // Modal State
@@ -36,6 +37,7 @@ export default function MarketsPage() {
       const res = await fetch(`/api/market?token=${activeToken}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.pools) setPools(data.pools);
+      if (data.resolved) setResolved(data.resolved);
     } catch (e) {}
   };
 
@@ -47,6 +49,7 @@ export default function MarketsPage() {
   }, [activeToken]);
 
   const openBetModal = async (market: MarketMeta, choice: 'YES' | 'NO') => {
+    if (resolved[market.id]) return;
     let activeAccount = address;
     if (!connected || !activeAccount) {
       try {
@@ -236,6 +239,11 @@ export default function MarketsPage() {
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-800 text-gray-300">
                       {market.category}
                     </span>
+                    {resolved[market.id] && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                        Resolved: {resolved[market.id]}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -283,12 +291,14 @@ export default function MarketsPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => openBetModal(market, 'YES')}
+                    disabled={!!resolved[market.id]}
                     className="py-2.5 px-4 rounded-xl bg-[#e07a1e] hover:bg-[#c96914] text-white text-xs font-extrabold transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
                   >
                     ⚡ Yes
                   </button>
                   <button
                     onClick={() => openBetModal(market, 'NO')}
+                    disabled={!!resolved[market.id]}
                     className="py-2.5 px-4 rounded-xl bg-[#1a202c] hover:bg-gray-800 text-gray-200 border border-gray-700 text-xs font-extrabold transition-all active:scale-95 flex items-center justify-center gap-1.5"
                   >
                     ⚡ No
