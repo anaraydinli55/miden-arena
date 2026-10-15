@@ -63,6 +63,7 @@ export async function creditDeposit(p: {
 }) {
   await redis.hincrby(poolsKey(p.token), `${p.marketId}:${p.choice === 'YES' ? 'yes' : 'no'}`, p.totalBase);
   await redis.hincrby(`stakes:${p.marketId}:${p.token}`, `${p.wallet}:${p.choice === 'YES' ? 'yes' : 'no'}`, p.totalBase);
+  await redis.hincrby(`stakes:${p.marketId}:${p.token}`, `${p.wallet}:${p.choice === 'YES' ? 'yes' : 'no'}`, p.totalBase);
 
   const prev = asObj(await redis.get(`user:${p.wallet}`)) || {};
   const volumeByToken: Record<string, number> = { ...(prev.volumeByToken || {}) };
