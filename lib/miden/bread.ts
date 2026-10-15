@@ -24,7 +24,7 @@ function extractTxHash(res: any): string | null {
 
 export async function sendViaBread(params: SendParams): Promise<string> {
   const provider = getBreadProvider();
-  if (!provider) throw new Error('Bread Wallet provider bulunamadi. Eklenti kurulu ve acik mi?');
+  if (!provider) throw new Error('Bread Wallet was not found. Is the extension installed and unlocked?');
 
   const txObj = { ...params, noteType: 'public' as const };
 
@@ -37,33 +37,33 @@ export async function sendViaBread(params: SendParams): Promise<string> {
     call = () => provider.request({ method: 'miden_sendTransaction', params: [txObj] });
 
   if (!call) {
-    console.error('Bread provider anahtarlari:', Object.keys(provider));
-    throw new Error('Bread Wallet icinde uygun gonderim metodu yok.');
+    console.error('Bread provider keys:', Object.keys(provider));
+    throw new Error('Bread Wallet has no supported send method.');
   }
 
   const timeout = new Promise<never>((_, rej) =>
-    setTimeout(() => rej(new Error('Bread Wallet 120 sn icinde yanit vermedi.')), 120_000)
+    setTimeout(() => rej(new Error('Bread Wallet did not respond within 120 seconds.')), 120_000)
   );
 
   let res: any;
   try {
     res = await Promise.race([call(), timeout]);
   } catch (e: any) {
-    console.error('[bread] hata:', e);
-    throw new Error(e?.message || String(e) || 'Cuzdan istegi basarisiz');
+    console.error('[bread] error:', e);
+    throw new Error(e?.message || String(e) || 'Wallet request failed');
   }
 
   if (
     res && typeof res === 'object' &&
     (res.error || res.success === false || (typeof res.status === 'string' && /fail|error|reject/i.test(res.status)))
   ) {
-    throw new Error(res.error?.message || (typeof res.error === 'string' ? res.error : '') || 'Cuzdan islemi reddetti');
+    throw new Error(res.error?.message || (typeof res.error === 'string' ? res.error : '') || 'Wallet rejected the transaction');
   }
 
   const txHash = extractTxHash(res);
   if (!txHash) {
-    console.error('[bread] hash yok, yanit:', res);
-    throw new Error('Cuzdan gercek bir islem hash dondurmedi, islem basarisiz.');
+    console.error('[bread] no hash in response:', res);
+    throw new Error('The wallet did not return a transaction hash, so the transaction failed.');
   }
   return txHash;
 }

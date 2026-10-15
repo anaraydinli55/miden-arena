@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Escrow vault'unu acik pazarlarin kayitli bahisleriyle karsilastirir.
-Kullanim: set -a; . ./.env.local; set +a; python3 scripts/reconcile.py [--consume]
---consume: once bekleyen note'lari vault'a alir (yoksa vault, yeni bahisler yuzunden eksik gorunur)."""
+"""Compares the escrow vault with the recorded stakes of the open markets.
+Usage: set -a; . ./.env.local; set +a; python3 scripts/reconcile.py [--consume]
+--consume first moves pending deposit notes into the vault (otherwise new bets look like a shortfall)."""
 import json, os, sys, time, urllib.request
 
 URL, TOK = os.environ['UPSTASH_REDIS_REST_URL'], os.environ['UPSTASH_REDIS_REST_TOKEN']
@@ -31,5 +31,5 @@ for t in ('ANR', 'SKS', 'ELA'):
     open_total = sum(int(v) for k, v in pools.items() if k.rsplit(':', 1)[0] not in resolved)
     v = vault.get(t)
     diff = None if v is None else v - open_total
-    print(f'{t}: vault={v} acik_pazarlar={open_total} fark={diff}')
-print('fark 0 ya da kucuk bir toz: normal. Negatif: tuketilmemis note var (--consume). Pozitif: tanimsiz depozito.')
+    print(f'{t}: vault={v} open_markets={open_total} difference={diff}')
+print('0 or a tiny dust: fine. Negative: unconsumed notes (use --consume). Positive: deposit without a ledger record.')

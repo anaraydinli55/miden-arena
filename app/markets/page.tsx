@@ -2,6 +2,7 @@
 
 import { BET_TOKENS, ESCROW_ACCOUNT_ID } from '@/lib/miden/tokens';
 import { placeBet } from '@/lib/bet-client';
+import { PendingBets } from '@/components/pending-bets';
 import React, { useState, useEffect } from 'react';
 import { OFFICIAL_MARKETS, MarketMeta } from '@/lib/markets';
 import { useWallet } from '@/components/wallet/wallet-provider';
@@ -60,7 +61,7 @@ export default function MarketsPage() {
     if (!activeAccount) {
       setTxNotification({
         type: 'error',
-        message: '⚠️ Zəhmət olmasa sol menyudan Bread Wallet-i qoşun.',
+        message: '⚠️ Please connect Bread Wallet from the left menu.',
       });
       setTimeout(() => setTxNotification(null), 4000);
       return;
@@ -76,23 +77,23 @@ export default function MarketsPage() {
   const handleConfirmBreadTransaction = async () => {
     if (!selectedMarket) return;
     if (!ESCROW_ACCOUNT_ID) {
-      setTxNotification({ type: 'error', message: 'Bahis qəbulu hələ aktiv deyil: depozito doğrulaması hazırlanır.' });
+      setTxNotification({ type: 'error', message: 'Betting is not open yet.' });
       return;
     }
 
     setIsSigning(true);
-    setTxNotification({ type: 'pending', message: '🍞 Hazırlanır...' });
+    setTxNotification({ type: 'pending', message: '🍞 Preparing...' });
 
     try {
-      if (!getLocalBreadProvider()) throw new Error('Bread Wallet brauzerinizdə tapılmadı.');
+      if (!getLocalBreadProvider()) throw new Error('Bread Wallet was not found in your browser.');
 
       let activeAccount = address;
       if (!activeAccount) activeAccount = await connect();
-      if (!activeAccount) throw new Error('Bread Wallet bağlantısı təsdiqlənmədi.');
+      if (!activeAccount) throw new Error('Bread Wallet connection was not approved.');
 
       const inputNum = Math.floor(Number(betAmount));
       if (!Number.isInteger(inputNum) || inputNum < 1 || inputNum > 1000) {
-        throw new Error('Məbləğ 1 ilə 1000 arasında tam ədəd olmalıdır.');
+        throw new Error('Amount must be a whole number between 1 and 1000.');
       }
 
       const result = await placeBet({
@@ -108,14 +109,14 @@ export default function MarketsPage() {
       setModalOpen(false);
       setTxNotification({
         type: 'success',
-        message: `✅ Bahis qeydə alındı (${selectedChoice}: ${inputNum} ${activeToken}).`,
+        message: `✅ Bet recorded (${selectedChoice}: ${inputNum} ${activeToken}).`,
         txHash: result.txHash,
       });
       fetchPools();
       setTimeout(() => setTxNotification(null), 8000);
     } catch (err: any) {
       console.error('Markets submission error:', err);
-      setTxNotification({ type: 'error', message: `❌ ${err.message || 'Tranzaksiya icra olunmadı'}` });
+      setTxNotification({ type: 'error', message: `❌ ${err.message || 'Transaction failed'}` });
       setTimeout(() => setTxNotification(null), 8000);
     } finally {
       setIsSigning(false);
@@ -140,7 +141,7 @@ export default function MarketsPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto text-white relative">
-      {/* Üst Başlıq */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">On-Chain Markets</h1>
@@ -156,7 +157,9 @@ export default function MarketsPage() {
         </div>
       </div>
 
-      {/* Bildiriş Paneli */}
+      <PendingBets onCredited={fetchPools} />
+
+      {/* Notification panel */}
       {txNotification && (
         <div
           className={`mb-6 p-4 rounded-xl border text-sm font-semibold flex flex-col md:flex-row md:items-center justify-between gap-2 animate-fadeIn ${
@@ -178,7 +181,7 @@ export default function MarketsPage() {
         </div>
       )}
 
-      {/* Kateqoriyalar */}
+      {/* Categories */}
       <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2 scrollbar-none">
         {['All', 'Miden ZK', 'Crypto', 'Economy', 'AI & Tech'].map((cat) => (
           <button
@@ -195,7 +198,7 @@ export default function MarketsPage() {
         ))}
       </div>
 
-      {/* Token seçimi: hər token üçün ayrı hovuz */}
+      {/* Token selector: one pool per token */}
       <div className="flex items-center gap-2 mb-6">
         <span className="text-xs font-bold text-gray-500 uppercase tracking-wider mr-1">Pool</span>
         {(['ANR', 'SKS', 'ELA'] as const).map((t) => (
@@ -213,7 +216,7 @@ export default function MarketsPage() {
         ))}
       </div>
 
-      {/* Kartlar */}
+      {/* Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredMarkets.map((market) => {
           const poolData = pools[market.id] || {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sonuclanmis bir pazarin odemelerini yapar: once escrow note'larini vault'a alir, sonra plani oder."""
+"""Pays out a resolved market: first moves the escrow's pending notes into its vault, then pays the plan."""
 import json, os, sys, time, urllib.error, urllib.request
 
 B = os.environ.get('BASE_URL', 'https://miden-arena.vercel.app')

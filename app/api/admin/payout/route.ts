@@ -53,7 +53,7 @@ export async function POST(req: Request) {
         pending.push(`${it.token}:${it.wallet}`);
         continue;
       }
-      if (Date.now() - started > 25_000) break; // bir sonraki cagriya birak
+      if (Date.now() - started > 25_000) break; // leave the rest for the next call
 
       const locked = state ? true : await redis.set(key, `pending:${Date.now()}`, { nx: true });
       if (!locked) continue;
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
         );
       } catch {
         pending.push(`${it.token}:${it.wallet}`);
-        error = 'belirsiz: servis zamaninda cevap vermedi; kayit pending kaldi, Bread/explorer ile kontrol edin';
+        error = 'ambiguous: the service did not answer in time; the record stays pending, check Bread or the explorer';
         break;
       }
 
@@ -79,12 +79,12 @@ export async function POST(req: Request) {
         continue;
       }
       if ((r.status >= 400 && r.status < 500) || r.status === 502) {
-        await redis.del(key); // kesin basarisiz: tekrar denenebilir
+        await redis.del(key); // definite failure: safe to retry
         error = r.data?.error || `mint service ${r.status}`;
         break;
       }
       pending.push(`${it.token}:${it.wallet}`);
-      error = `belirsiz (${r.status}); kayit pending kaldi, kontrol edin`;
+      error = `ambiguous (${r.status}); the record stays pending, please check`;
       break;
     }
 

@@ -4,14 +4,17 @@ import { useState, useEffect } from "react";
 import { useWallet } from "@/components/wallet/wallet-provider";
 import { placeBet } from "@/lib/bet-client";
 import { ESCROW_ACCOUNT_ID } from "@/lib/miden/tokens";
+import { OFFICIAL_MARKETS } from "@/lib/markets";
+import { PendingBets } from "@/components/pending-bets";
 
 function getLocalBreadProvider() {
   if (typeof window === "undefined") return null;
   return (window as any).bread || (window as any).miden || (window as any).midenWallet || null;
 }
 
-// Escrow hesabi ve faucet ID-leri lib/miden/tokens.ts-den gelir (env ile konfiqurasiya)
+// Escrow account and faucet IDs come from lib/miden/tokens.ts (configured via env)
 const MARKET_CONTRACT_ID = ESCROW_ACCOUNT_ID || "not-configured";
+const PANEL_MARKET = OFFICIAL_MARKETS.find((m) => m.id === "miden-mainnet-q4") ?? OFFICIAL_MARKETS[0];
 const DECIMALS_MULTIPLIER = 1_000_000; // 6 decimals
 
 export function PredictionPanel() {
@@ -32,7 +35,7 @@ export function PredictionPanel() {
 
   const fetchLiveState = async () => {
     try {
-      const res = await fetch(`/api/market?market_id=miden-mainnet-q4&token=${selectedToken}`);
+      const res = await fetch(`/api/market?market_id=${PANEL_MARKET.id}&token=${selectedToken}`);
       if (res.ok) {
         const data = await res.json();
         setLivePool({
@@ -58,18 +61,18 @@ export function PredictionPanel() {
     const breadProvider = getLocalBreadProvider();
 
     if (!breadProvider) {
-      alert("Bread Wallet extension tapılmadı!");
-      setStatus("❌ Bread Wallet extension tapılmadı.");
+      alert("Bread Wallet extension not found!");
+      setStatus("❌ Bread Wallet extension not found.");
       return;
     }
 
     if (!choice) {
-      setStatus("⚠️ Zəhmət olmasa YES və ya NO seçin.");
+      setStatus("⚠️ Please choose YES or NO.");
       return;
     }
 
     setLoading(true);
-    setStatus(`🍞 Bread Wallet təsdiq pəncərəsi açılır... Zəhmət olmasa ${amount} ${selectedToken} təsdiq edin.`);
+    setStatus(`🍞 Opening Bread Wallet... Please confirm ${amount} ${selectedToken}.`);
 
     try {
       let activeAccount = address;
@@ -86,17 +89,17 @@ export function PredictionPanel() {
       }
 
       if (!activeAccount) {
-        throw new Error("Bread Wallet bağlantısı təsdiqlənmədi.");
+        throw new Error("Bread Wallet connection was not approved.");
       }
 
       const inputUnits = Number(amount);
       if (!Number.isInteger(inputUnits) || inputUnits < 1 || inputUnits > 1000) {
-        throw new Error("Məbləğ 1 ilə 1000 arasında tam ədəd olmalıdır.");
+        throw new Error("Amount must be a whole number between 1 and 1000.");
       }
 
       const result = await placeBet({
         wallet: activeAccount,
-        marketId: "miden-mainnet-q4",
+        marketId: PANEL_MARKET.id,
         choice,
         token: selectedToken,
         amount: inputUnits,
@@ -106,16 +109,16 @@ export function PredictionPanel() {
       if (!result.ok) throw new Error(result.error);
 
       setIsTxSubmitted(true);
-      setStatus(`✅ Bahis qeydə alındı (${choice}: ${inputUnits} ${selectedToken}).`);
+      setStatus(`✅ Bet recorded (${choice}: ${inputUnits} ${selectedToken}).`);
       fetchLiveState();
     } catch (err: any) {
       console.error("Bread Submission Error:", err);
       setIsTxSubmitted(false);
       const msg = err?.message || String(err);
       if (msg.includes("User rejected") || msg.includes("Cancel") || err?.code === 4001) {
-        setStatus("⚠️ İstifadəçi tranzaksiyanı cüzdanda ləğv etdi.");
+        setStatus("⚠️ You cancelled the transaction in your wallet.");
       } else {
-        setStatus(`❌ Cüzdan Xətası: ${msg}`);
+        setStatus(`❌ Wallet error: ${msg}`);
       }
       setTxHash(null);
     } finally {
@@ -125,6 +128,7 @@ export function PredictionPanel() {
 
   return (
     <div className="card rounded-2xl p-5 border border-white/10 bg-white/[0.02]">
+      <PendingBets onCredited={fetchLiveState} />
       <div className="mb-4 flex items-center justify-between">
         <div className="text-sm font-semibold text-white">Private Prediction</div>
         <span className="rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] font-medium text-cyan-400">
@@ -144,7 +148,7 @@ export function PredictionPanel() {
             {MARKET_CONTRACT_ID.slice(0, 10)}...{MARKET_CONTRACT_ID.slice(-4)} ↗
           </a>
         </div>
-        <div>Market: <span className="text-white/80 font-medium">#1 (Will Miden mainnet launch before Q2 2027?)</span></div>
+        <div>Market: <span className="text-white/80 font-medium">{PANEL_MARKET.title}</span></div>
         {livePool && (
           <div className="mt-2 pt-2 border-t border-white/10 flex justify-between text-white/80 font-semibold">
             <span className="text-emerald-400">🟢 YES: {livePool.yes} {selectedToken}</span>
@@ -175,9 +179,9 @@ export function PredictionPanel() {
         ))}
       </div>
 
-      {/* Token Seçimi: ELA / ANR / SKS */}
+      {/* Token selection: ELA / ANR / SKS */}
       <div className="mt-3">
-        <label className="mb-1.5 block text-xs text-white/45">Mərc Aktivini Seçin</label>
+        <label className="mb-1.5 block text-xs text-white/45">Choose an asset</label>
         <div className="grid grid-cols-3 gap-2">
           {(["ELA", "ANR", "SKS"] as const).map((token) => (
             <button
@@ -198,7 +202,7 @@ export function PredictionPanel() {
 
       <div className="mt-3">
         <label className="mb-2 block text-xs text-white/45">
-          {selectedToken} Məbləği (Tam Vahid)
+          {selectedToken} amount (whole units)
         </label>
 
         <input
@@ -215,7 +219,7 @@ export function PredictionPanel() {
         {connected && address ? (
           <span className="text-emerald-400">🟢 Connected: {address.slice(0, 10)}...{address.slice(-4)}</span>
         ) : (
-          <span className="text-amber-400">⚠️ Sol menyudan cüzdanı qoşun.</span>
+          <span className="text-amber-400">⚠️ Connect your wallet from the left menu.</span>
         )}
       </div>
 
@@ -224,7 +228,7 @@ export function PredictionPanel() {
         disabled={loading}
         className="mt-3 w-full rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-95 disabled:opacity-50 shadow-lg shadow-purple-500/20 cursor-pointer"
       >
-        {loading ? `⏳ Cüzdandan ${amount} ${selectedToken} Gözlənilir...` : `⚡ Submit ${amount} ${selectedToken} Prediction`}
+        {loading ? `⏳ Waiting for ${amount} ${selectedToken} confirmation...` : `⚡ Submit ${amount} ${selectedToken} Prediction`}
       </button>
 
       {status && (
@@ -244,20 +248,20 @@ export function PredictionPanel() {
       {isTxSubmitted && (
         <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200 space-y-2 shadow-lg shadow-emerald-500/10">
           <div className="font-bold flex items-center justify-between text-emerald-300">
-            <span>🎉 Real On-Chain Explorer Linkləri:</span>
+            <span>🎉 On-chain explorer links:</span>
             <a
               href={`https://testnet.midenscan.com/account/${address}`}
               target="_blank"
               rel="noreferrer"
               className="text-cyan-400 underline hover:text-cyan-300 font-semibold text-[11px]"
             >
-              Canlı Blokçeyn Baxışı ↗
+              Live blockchain view ↗
             </a>
           </div>
 
           <div className="font-mono text-[11px] text-emerald-300 break-all bg-black/50 p-2.5 rounded-lg border border-emerald-500/20 space-y-1.5">
             <div>
-              <span className="text-white/50">Göndərən Hesab:</span>{" "}
+              <span className="text-white/50">Sender account:</span>{" "}
               <a
                 href={`https://testnet.midenscan.com/account/${address}`}
                 target="_blank"
@@ -269,7 +273,7 @@ export function PredictionPanel() {
             </div>
 
             <div>
-              <span className="text-white/50">Hədəf Kontrakt:</span>{" "}
+              <span className="text-white/50">Target account:</span>{" "}
               <a
                 href={`https://testnet.midenscan.com/account/${MARKET_CONTRACT_ID}`}
                 target="_blank"

@@ -12,11 +12,17 @@ export function hasRealRedis(): boolean {
   );
 }
 
+// Betting is open only when every dependency of the deposit flow is configured:
+// the flag, a real Redis and the mint service that verifies deposits on chain.
+// Otherwise users could send tokens that can never be verified.
 export function ledgerOpen(): boolean {
-  return process.env.BETS_LEDGER_OPEN === '1' && hasRealRedis();
+  const e = process.env;
+  return (
+    e.BETS_LEDGER_OPEN === '1' && hasRealRedis() && !!e.MINT_SERVICE_URL && !!e.MINT_SERVICE_SECRET
+  );
 }
 
-// Bread adresleri "<bech32>_<ek>" bicimindedir; ek atilir, kucuk harfe cevrilir.
+// Bread addresses look like "<bech32>_<suffix>": drop the suffix and lowercase.
 export function normWallet(w: string): string {
   return String(w || '').trim().toLowerCase().split('_')[0];
 }
@@ -29,7 +35,8 @@ export function isToken(t: string): t is BetToken {
   return (TOKENS as readonly string[]).includes(t);
 }
 
-// Tek hash: alanlar "<market>:yes" ve "<market>:no" (base unit). Bir okuma = 1 Redis komutu.
+// One hash per token. Fields are "<market>:yes" and "<market>:no" in base units,
+// so reading all pools of a token costs a single Redis command.
 export const poolsKey = (token: string) => `pools:${token}`;
 
 export function shapePool(yesBase: number, noBase: number) {
@@ -61,8 +68,9 @@ export async function creditDeposit(p: {
   choice: 'YES' | 'NO';
   noteId: string;
 }) {
-  await redis.hincrby(poolsKey(p.token), `${p.marketId}:${p.choice === 'YES' ? 'yes' : 'no'}`, p.totalBase);
-  await redis.hincrby(`stakes:${p.marketId}:${p.token}`, `${p.wallet}:${p.choice === 'YES' ? 'yes' : 'no'}`, p.totalBase);
+  const side = p.choice === 'YES' ? 'yes' : 'no';
+  await redis.hincrby(poolsKey(p.token), `${p.marketId}:${side}`, p.totalBase);
+  await redis.hincrby(`stakes:${p.marketId}:${p.token}`, `${p.wallet}:${side}`, p.totalBase);
 
   const prev = asObj(await redis.get(`user:${p.wallet}`)) || {};
   const volumeByToken: Record<string, number> = { ...(prev.volumeByToken || {}) };
@@ -79,6 +87,7 @@ export async function creditDeposit(p: {
   };
   await redis.set(`user:${p.wallet}`, JSON.stringify(stats));
   await redis.zadd('leaderboard:xp', { score: stats.xp, member: p.wallet });
+
   const volumeText = Object.entries(volumeByToken)
     .filter(([, v]) => Number(v) > 0)
     .map(([t, v]) => `${Math.round(Number(v) * 100) / 100} ${t}`)
@@ -91,6 +100,7 @@ export async function creditDeposit(p: {
       xp: stats.xp,
     }),
   });
+
   await redis.lpush(
     `history:${p.wallet}`,
     JSON.stringify({

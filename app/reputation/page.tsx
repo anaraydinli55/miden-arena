@@ -35,7 +35,7 @@ export default function ReputationPage() {
   const totalBets = stats?.totalBets || 0;
   const totalVolume = stats?.totalVolume || 0;
   const streak = stats?.streak || 0;
-  const walletAddr = address || 'Bread Wallet bağlı deyil';
+  const walletAddr = address || 'Bread Wallet not connected';
 
   return (
     <div className="p-8 pt-10 max-w-7xl mx-auto text-white">
@@ -58,7 +58,7 @@ export default function ReputationPage() {
         <div className="bg-[#121620] border border-gray-800 rounded-2xl p-5 shadow-xl">
           <div className="text-gray-400 text-xs font-bold uppercase tracking-wider">Earned XP</div>
           <div className="text-3xl font-black mt-2 text-indigo-400">{Number(xp).toLocaleString()} XP</div>
-          <div className="text-[11px] text-gray-500 mt-1">10 XP per ANR Volume</div>
+          <div className="text-[11px] text-gray-500 mt-1">100 XP per prediction</div>
         </div>
 
         <div className="bg-[#121620] border border-gray-800 rounded-2xl p-5 shadow-xl">

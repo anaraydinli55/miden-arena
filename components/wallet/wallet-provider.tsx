@@ -84,14 +84,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     console.log("Connect button clicked! Provider detected:", provider);
 
     if (!provider) {
-      alert("⚠️ Bread Wallet / Miden Wallet Chrome Extension tapılmadı!\nZəhmət olmasa extension-ın brauzerdə aktiv olduğundan əmin olun.");
+      alert("⚠️ Bread Wallet / Miden Wallet Chrome extension not found!\nPlease make sure the extension is installed and enabled in your browser.");
       return null;
     }
 
     try {
       let activeAcc: string | null = null;
 
-      // Popup açan bütün mümkün Miden/Bread metodlarını yoxlayırıq:
+      // Try every method that can open the wallet popup:
       if (typeof provider.requestConnection === "function") {
         console.log("Triggering provider.requestConnection()...");
         const res = await provider.requestConnection();
@@ -122,11 +122,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setConnected(true);
         return activeAcc;
       } else {
-        throw new Error("Cüzdandan hesab ünvanı qayıtmadı.");
+        throw new Error("The wallet did not return an account address.");
       }
     } catch (e: any) {
       console.error("Connect failed:", e);
-      setError(e?.message || "Cüzdan bağlantısı rədd edildi.");
+      setError(e?.message || "Wallet connection was rejected.");
     }
     return null;
   };

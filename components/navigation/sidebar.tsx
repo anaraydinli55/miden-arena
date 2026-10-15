@@ -25,7 +25,7 @@ const NAV_ITEMS = [
   { name: 'Reputation', href: '/reputation', icon: Award },
   { name: 'Leaderboard', href: '/leaderboard', icon: Trophy },
   { name: 'Badges', href: '/badges', icon: Award },
-  { name: 'Swap & Faucet', href: '/faucet', icon: Coins },
+  { name: 'Faucet', href: '/faucet', icon: Coins },
 ];
 
 export default function Sidebar() {

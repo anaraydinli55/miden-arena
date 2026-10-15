@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       return json({ success: problems.length === 0, dry_run: true, outcome, summary, problems, items });
     }
 
-    // once pazari kapat (yeni niyet/depozit sayilmaz), vuruslu islemlerin bitmesini bekle, sonra plani hesapla
+    // close the market first (no new bets or deposits are counted), let in-flight requests finish, then build the plan
     if (!existing) {
       const ok = await redis.set(`resolved:${marketId}`, JSON.stringify({ outcome, ts: Date.now() }), { nx: true });
       if (!ok) return json({ success: false, error: 'concurrent resolve' }, 409);
