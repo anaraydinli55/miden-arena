@@ -31,6 +31,9 @@ export async function POST(req: Request) {
     if (!market || market.expiresAt <= Date.now()) {
       return json({ success: false, error: 'Bazar tapılmadı və ya bağlanıb' }, 400);
     }
+    if (await redis.get(`resolved:${marketId}`)) {
+      return json({ success: false, error: 'Bazar artıq nəticələnib' }, 400);
+    }
     if (!Number.isInteger(amount) || amount < 1 || amount > 1000) {
       return json({ success: false, error: 'Məbləğ 1 ilə 1000 arasında tam ədəd olmalıdır' }, 400);
     }

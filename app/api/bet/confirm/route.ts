@@ -26,6 +26,10 @@ export async function POST(req: Request) {
       return json({ success: false, error: 'Niyyət tapılmadı və ya vaxtı bitib' }, 404);
     }
 
+    if (await redis.get(`resolved:${intent.marketId}`)) {
+      return json({ success: false, error: 'Bazar artıq nəticələnib, depozit sayılmadı' }, 409);
+    }
+
     const base = process.env.MINT_SERVICE_URL;
     const secret = process.env.MINT_SERVICE_SECRET;
     if (!base || !secret) {
