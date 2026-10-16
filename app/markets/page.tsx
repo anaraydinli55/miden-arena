@@ -50,7 +50,7 @@ export default function MarketsPage() {
   }, [activeToken]);
 
   const openBetModal = async (market: MarketMeta, choice: 'YES' | 'NO') => {
-    if (resolved[market.id]) return;
+    if (resolved[market.id] || market.expiresAt <= Date.now()) return;
     let activeAccount = address;
     if (!connected || !activeAccount) {
       try {
@@ -124,7 +124,7 @@ export default function MarketsPage() {
   };
 
   const now = Date.now();
-  const activeMarkets = OFFICIAL_MARKETS.filter((m) => m.expiresAt > now);
+  const activeMarkets = OFFICIAL_MARKETS.filter((m) => m.expiresAt > now - 14 * 24 * 60 * 60 * 1000);
 
   const filteredMarkets = activeMarkets.filter((m) => {
     if (selectedCategory === 'All') return true;
@@ -247,6 +247,11 @@ export default function MarketsPage() {
                         Resolved: {resolved[market.id]}
                       </span>
                     )}
+                    {!resolved[market.id] && market.expiresAt <= now && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                        Closed: awaiting result
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -294,14 +299,14 @@ export default function MarketsPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => openBetModal(market, 'YES')}
-                    disabled={!!resolved[market.id]}
+                    disabled={!!resolved[market.id] || market.expiresAt <= now}
                     className="py-2.5 px-4 rounded-xl bg-[#e07a1e] hover:bg-[#c96914] text-white text-xs font-extrabold transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
                   >
                     ⚡ Yes
                   </button>
                   <button
                     onClick={() => openBetModal(market, 'NO')}
-                    disabled={!!resolved[market.id]}
+                    disabled={!!resolved[market.id] || market.expiresAt <= now}
                     className="py-2.5 px-4 rounded-xl bg-[#1a202c] hover:bg-gray-800 text-gray-200 border border-gray-700 text-xs font-extrabold transition-all active:scale-95 flex items-center justify-center gap-1.5"
                   >
                     ⚡ No

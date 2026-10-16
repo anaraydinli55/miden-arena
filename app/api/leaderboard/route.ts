@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
     if (me) {
       const mine = users.find((u) => String(u.address).toLowerCase() === me);
-      if (mine) mine.address = meFull; // yalniz istek sahibinin satiri: "siz" vurgusu icin
+      if (mine) mine.address = meFull; // only the requester's own row, so the page can highlight "you"
       else users.push({ address: meFull, predictionsCount: 0, volume: '0', xp: 0 });
     }
 

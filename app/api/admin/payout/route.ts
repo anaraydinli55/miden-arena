@@ -74,6 +74,22 @@ export async function POST(req: Request) {
 
       if (r.status === 200 && r.data?.success) {
         await redis.set(key, `done:${r.data.txHash}`);
+        try {
+          await redis.lpush(
+            `history:${it.wallet}`,
+            JSON.stringify({
+              tx_hash: r.data.txHash,
+              market_id: marketId,
+              choice: it.kind === 'win' ? 'WIN' : 'REFUND',
+              amount: it.base / 1_000_000,
+              token: it.token,
+              timestamp: Date.now(),
+              status: it.kind === 'win' ? 'Winnings paid' : 'Refund paid',
+            })
+          );
+        } catch (e) {
+          console.error('history write failed', e);
+        }
         paid++;
         results.push({ item: `${it.token}:${it.wallet}`, base: it.base, kind: it.kind, tx: r.data.txHash });
         continue;

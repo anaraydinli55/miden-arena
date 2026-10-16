@@ -4,7 +4,7 @@ const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
 const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 
 // ---------------------------------------------------------------------------
-// In-memory fallback (env yoksa)
+// In-memory fallback (used when the Upstash env vars are missing)
 // ---------------------------------------------------------------------------
 const memStore = new Map<string, unknown>();
 const memZSets = new Map<string, Map<string, number>>();
@@ -38,45 +38,4 @@ const memRedis = {
 
 export const redis = (url && token)
   ? new Redis({ url, token })
-  : (console.warn('⚠️ Upstash env eksik — in-memory fallback aktif'), memRedis as any);
-
-// ---------------------------------------------------------------------------
-// redisCommand: raw command over the REST API
-// ---------------------------------------------------------------------------
-export async function redisCommand(command: string, ...args: (string | number)[]) {
-  if (!url || !token) {
-    const key = String(args[0]);
-    if (command.toUpperCase() === 'GET') return memStore.get(key) ?? null;
-    if (command.toUpperCase() === 'SET') { memStore.set(key, args[1]); return 'OK'; }
-    if (command.toUpperCase() === 'INCRBYFLOAT') {
-      const val = Number(memStore.get(key) ?? 0) + Number(args[1]);
-      memStore.set(key, val); return val;
-    }
-    if (command.toUpperCase() === 'LPUSH') {
-      if (!memLists.has(key)) memLists.set(key, []);
-      memLists.get(key)!.unshift(args[1]); return memLists.get(key)!.length;
-    }
-    return null;
-  }
-  try {
-    const formattedArgs = args.map(a => encodeURIComponent(String(a))).join('/');
-    const res = await fetch(`${url}/${command}/${formattedArgs}`, {
-      headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
-    });
-    const data = await res.json();
-    return (data as { result: unknown }).result;
-  } catch (e) { console.error('Redis command error:', e); return null; }
-}
-
-export async function recordBetToLiveMemory(
-  predictionId: string, outcomeValue: string, amount: number, tokenSymbol: string
-) {
-  await redisCommand('INCRBYFLOAT', `pred:${predictionId}:volume`, amount);
-  await redisCommand('INCRBYFLOAT', `pred:${predictionId}:outcome:${outcomeValue}`, amount);
-  await redisCommand('LPUSH', `pred:${predictionId}:recent_bets`,
-    JSON.stringify({ outcome: outcomeValue, amount, token: tokenSymbol, timestamp: Date.now() }));
-}
-
-export const INITIAL_MARKET_STATE = {
-  total_pool: 0, yes_pool: 0, no_pool: 0, yes_percent: 50, no_percent: 50,
-};
+  : (console.warn('⚠️ Upstash env vars missing: using the in-memory fallback'), memRedis as any);
