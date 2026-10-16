@@ -25,12 +25,12 @@ export const OFFICIAL_MARKETS: MarketMeta[] = [
     expiresAt: new Date('2026-11-15T23:59:59Z').getTime(),
   },
   {
-    id: 'uni-10-oct',
+    id: 'uni-10-dec',
     category: 'Crypto',
-    title: 'Will Uniswap (UNI) hit $10 by October 10, 2026?',
+    title: 'Will Uniswap (UNI) hit $10 by December 10, 2026?',
     icon: '🦄',
     tokenSymbol: 'ANR',
-    expiresAt: new Date('2026-10-10T23:59:59Z').getTime(),
+    expiresAt: new Date('2026-12-10T23:59:59Z').getTime(),
   },
   {
     id: 'ltc-100-dec',
