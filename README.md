@@ -22,3 +22,8 @@ Open http://localhost:3000
 - `/badges` Badges
 
 This version is frontend-only with mock data and mock prediction interactions. Miden wallet, contracts, oracle/settlement and onchain reputation are intentionally left for the next layer.
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Operations runbook](docs/OPERATIONS.md)
