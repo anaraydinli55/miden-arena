@@ -8,9 +8,19 @@ A="$(cat ~/.admin-secret)"
 H=(-H "x-admin-secret: $A" -H 'Content-Type: application/json')
 
 echo "== dry run =="
-curl -s -X POST "$B/api/admin/resolve" "${H[@]}" -d "{\"market_id\":\"$M\",\"outcome\":\"$O\",\"dry_run\":true}" | python3 -m json.tool
-read -r -p "Is the plan correct? Type 'yes' to resolve (CANNOT be undone): " ok
-[ "$ok" = "yes" ] || { echo "cancelled"; exit 1; }
+plan=$(curl -s -X POST "$B/api/admin/resolve" "${H[@]}" -d "{\"market_id\":\"$M\",\"outcome\":\"$O\",\"dry_run\":true}")
+echo "$plan" | python3 -m json.tool
+n=$(echo "$plan" | python3 -c "import sys, json; print(len(json.load(sys.stdin).get('items', [])))")
+
+if [ "$n" = "0" ]; then
+  echo
+  echo "WARNING: the plan has no payouts. Resolving now only closes the market for good."
+  read -r -p "Type 'close' to close it anyway: " ok
+  [ "$ok" = "close" ] || { echo "cancelled"; exit 1; }
+else
+  read -r -p "Is the plan correct? Type 'yes' to resolve (CANNOT be undone): " ok
+  [ "$ok" = "yes" ] || { echo "cancelled"; exit 1; }
+fi
 
 echo "== resolving =="
 curl -s -X POST "$B/api/admin/resolve" "${H[@]}" -d "{\"market_id\":\"$M\",\"outcome\":\"$O\"}" | python3 -m json.tool
