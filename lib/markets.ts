@@ -104,12 +104,4 @@ export const OFFICIAL_MARKETS: MarketMeta[] = [
     tokenSymbol: 'ANR',
     expiresAt: new Date('2026-12-31T23:59:59Z').getTime(),
   },
-  {
-    id: 'split-test',
-    category: 'Miden ZK',
-    title: 'Test market: payout split check (testnet only)',
-    icon: '🧪',
-    tokenSymbol: 'ANR',
-    expiresAt: new Date('2026-10-24T23:59:59Z').getTime(),
-  },
 ];
