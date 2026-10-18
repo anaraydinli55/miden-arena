@@ -93,3 +93,24 @@ All accounts and notes disappear.
 2. Put the new IDs into `lib/miden/tokens.ts`, `docs/` and `NEXT_PUBLIC_ESCROW_ACCOUNT_ID`.
 3. Build a new bundle from `data-new` and set `BOOTSTRAP_B64` on Render.
 4. Clear the old ledger keys in Redis (`pools:*`, `stakes:*`, `user:*`, `history:*`, `lb:users`, `leaderboard:xp`, `resolved:*`, `plan:*`, `payout:*`) and redeploy.
+
+## Admin tools (`scripts/`)
+
+| Script | Purpose |
+| --- | --- |
+| `resolve_market.sh <market> <YES\|NO\|VOID>` | Dry run, confirmation, resolve, pay. Warns when the plan is empty (an empty plan only closes the market) |
+| `admin_payout.py <market>` | Consume and pay only; use it to resume after an interruption |
+| `dry_run_check.py [market]` | Checks a dry-run plan and recomputes every winner's payout from the stake index |
+| `reconcile.py [--consume]` | Escrow vault versus the stakes of open markets |
+| `markets_overview.py` | Pools per market and token, number of wallets, resolved state |
+| `rebuild_stakes.py` | Rebuilds the stake index from the verified deposit history |
+| `reopen_empty_market.py <market>` | Reopens a market resolved by mistake; refuses if it has any data |
+
+## Payout rounding
+
+Each payout is rounded down. The leftover dust (at most one base unit per winner) stays in the escrow, so `reconcile.py` can show a difference of a few base units after a payout.
+
+## Testing payouts
+
+Resolving a market closes it for good. To test a payout, add a temporary market to `lib/markets.ts` (use a new id), place the bets on that market, run the dry run first and remove the entry afterwards.
+Always read the dry run before confirming: a split needs at least two wallets on the winning side to show proportional shares.
