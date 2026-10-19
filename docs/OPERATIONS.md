@@ -114,3 +114,8 @@ Each payout is rounded down. The leftover dust (at most one base unit per winner
 
 Resolving a market closes it for good. To test a payout, add a temporary market to `lib/markets.ts` (use a new id), place the bets on that market, run the dry run first and remove the entry afterwards.
 Always read the dry run before confirming: a split needs at least two wallets on the winning side to show proportional shares.
+
+## Moving a market date
+
+`scripts/move_market_date.py <market_id> <YYYY-MM-DD> [--replace "old" "new"] [--allow-staked]` changes the expiry (and optionally a phrase in the title).
+It refuses resolved markets and markets with stakes unless `--allow-staked` is given; for a market with real bettors, resolve it and add a new market with a new id instead.

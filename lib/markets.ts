@@ -51,10 +51,10 @@ export const OFFICIAL_MARKETS: MarketMeta[] = [
   {
     id: 'sol-300-ath',
     category: 'Crypto',
-    title: 'Will Solana (SOL) break $300 before November 2026?',
+    title: 'Will Solana (SOL) break $300 before January 2027?',
     icon: '🟣',
     tokenSymbol: 'ANR',
-    expiresAt: new Date('2026-11-01T23:59:59Z').getTime(),
+    expiresAt: new Date('2026-12-31T23:59:59Z').getTime(),
   },
   {
     id: 'eth-pos-ratio',
@@ -62,7 +62,7 @@ export const OFFICIAL_MARKETS: MarketMeta[] = [
     title: 'Will Ethereum Staking Ratio exceed 35% of total supply?',
     icon: '🔷',
     tokenSymbol: 'ANR',
-    expiresAt: new Date('2026-10-31T23:59:59Z').getTime(),
+    expiresAt: new Date('2026-11-30T23:59:59Z').getTime(),
   },
   {
     id: 'gold-4500-ath',
