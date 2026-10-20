@@ -90,7 +90,7 @@ Without the keys the faucets and the escrow can never be used again.
 
 All accounts and notes disappear.
 1. In `miden-mint-service`, run `cargo run --release --bin provision -- data-new` (creates the three faucets and the escrow; request USDCx for each address from the official faucet when asked).
-2. Put the new IDs into `lib/miden/tokens.ts`, `docs/` and `NEXT_PUBLIC_ESCROW_ACCOUNT_ID`.
+2. Put the new IDs into `lib/miden/tokens.ts`, `docs/` and `NEXT_PUBLIC_ESCROW_ACCOUNT_ID` (including the bech32 addresses `BET_TOKEN_ADDRESSES` and `ESCROW_ADDRESS`, which Bread needs to label sent tokens).
 3. Build a new bundle from `data-new` and set `BOOTSTRAP_B64` on Render.
 4. Clear the old ledger keys in Redis (`pools:*`, `stakes:*`, `user:*`, `history:*`, `lb:users`, `leaderboard:xp`, `resolved:*`, `plan:*`, `payout:*`) and redeploy.
 

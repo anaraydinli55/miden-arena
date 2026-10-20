@@ -29,3 +29,17 @@ export const BET_TOKENS: Record<'ELA' | 'ANR' | 'SKS', string> = {
   ANR: CLAIM_TOKENS.ANR.faucetId,
   SKS: CLAIM_TOKENS.SKS.faucetId,
 };
+
+// Bread Wallet labels a sent token only when the faucet and the recipient are given as full bech32
+// addresses with the "_qr7qqq9wr6w" routing suffix; hex IDs show up as "Unknown" in its Activity list.
+// These are the same accounts as the hex IDs above: update them together after a testnet reset
+// (take the bech32 part from deployed.json and append the suffix).
+const ADDRESS_SUFFIX = '_qr7qqq9wr6w';
+
+export const BET_TOKEN_ADDRESSES: Record<'ELA' | 'ANR' | 'SKS', string> = {
+  ANR: 'mtst1apae2yhu0l7dd5f7g0frr08kxy9xh69p' + ADDRESS_SUFFIX,
+  SKS: 'mtst1azn7yqn02jvzu526g4yn78t37vpawkrq' + ADDRESS_SUFFIX,
+  ELA: 'mtst1aq04tv5rq6d5252xweyfch3vdq0fsq8v' + ADDRESS_SUFFIX,
+};
+
+export const ESCROW_ADDRESS = 'mtst1aq9qxfvlq0whp52wj7nfx3g0ngu6m28w' + ADDRESS_SUFFIX;

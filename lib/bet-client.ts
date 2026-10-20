@@ -1,5 +1,5 @@
 import { sendViaBread } from '@/lib/miden/bread';
-import { BET_TOKENS, ESCROW_ACCOUNT_ID } from '@/lib/miden/tokens';
+import { BET_TOKEN_ADDRESSES, ESCROW_ACCOUNT_ID, ESCROW_ADDRESS } from '@/lib/miden/tokens';
 
 export type BetToken = 'ANR' | 'SKS' | 'ELA';
 
@@ -87,7 +87,7 @@ export async function checkPendingBet(p: PendingBet): Promise<'credited' | 'wait
 
 export async function placeBet(p: PlaceBetParams): Promise<PlaceBetResult> {
   if (!ESCROW_ACCOUNT_ID) return { ok: false, error: 'Betting is not open yet.' };
-  const faucetId = BET_TOKENS[p.token];
+  const faucetId = BET_TOKEN_ADDRESSES[p.token];
   if (!faucetId) return { ok: false, error: `${p.token} is not configured.` };
 
   p.onStatus?.('Creating your bet...');
@@ -108,7 +108,7 @@ export async function placeBet(p: PlaceBetParams): Promise<PlaceBetResult> {
   try {
     txHash = await sendViaBread({
       senderAddress: p.wallet,
-      recipientAddress: ESCROW_ACCOUNT_ID,
+      recipientAddress: ESCROW_ADDRESS,
       faucetId,
       amount: total,
     });
