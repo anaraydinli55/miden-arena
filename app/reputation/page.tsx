@@ -34,6 +34,11 @@ export default function ReputationPage() {
   const xp = stats?.xp || 0;
   const totalBets = stats?.totalBets || 0;
   const totalVolume = stats?.totalVolume || 0;
+  const volumeText =
+    Object.entries((stats?.volumeByToken || {}) as Record<string, number>)
+      .filter(([, v]) => Number(v) > 0)
+      .map(([t, v]) => `${Math.round(Number(v) * 100) / 100} ${t}`)
+      .join(' · ') || '0';
   const streak = stats?.streak || 0;
   const walletAddr = address || 'Bread Wallet not connected';
 
@@ -69,7 +74,7 @@ export default function ReputationPage() {
 
         <div className="bg-[#121620] border border-gray-800 rounded-2xl p-5 shadow-xl">
           <div className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Volume</div>
-          <div className="text-3xl font-black mt-2 text-emerald-400">{totalVolume} ANR</div>
+          <div className="text-3xl font-black mt-2 text-emerald-400">{volumeText}</div>
           <div className="text-[11px] text-gray-500 mt-1">Staked on-chain</div>
         </div>
 

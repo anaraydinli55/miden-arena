@@ -41,7 +41,14 @@ export async function GET(req: Request) {
 
     return new NextResponse(
       JSON.stringify({
-        stats: { wallet, xp, totalBets: bets, totalVolume: volume, streak: bets > 0 ? 1 : 0 },
+        stats: {
+          wallet,
+          xp,
+          totalBets: bets,
+          totalVolume: volume,
+          volumeByToken: userStats?.volumeByToken || {},
+          streak: bets > 0 ? 1 : 0,
+        },
         badges: BADGES.map((b) => ({ ...b, current: bets, unlocked: bets >= b.target })),
         history,
       }),

@@ -429,7 +429,7 @@ export default function MarketsPage() {
                   Waiting for Bread Wallet confirmation...
                 </>
               ) : (
-                `⚡ Submit ZK Prediction (${betAmount} ANR)`
+                `⚡ Submit ZK Prediction (${betAmount} {activeToken})`
               )}
             </button>
           </div>
